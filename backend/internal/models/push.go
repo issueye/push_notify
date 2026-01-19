@@ -10,11 +10,11 @@ type Push struct {
 	ID             uint       `gorm:"primarykey" json:"id"`
 	RepoID         uint       `gorm:"not null;index" json:"repo_id"`
 	Repo           Repo       `gorm:"foreignKey:RepoID" json:"repo,omitempty"`
-	TargetID       uint       `gorm:"not null;index" json:"target_id"`
+	TargetID       uint       `gorm:"not null;index;uniqueIndex:idx_commit_target" json:"target_id"`
 	Target         Target     `gorm:"foreignKey:TargetID" json:"target,omitempty"`
 	TemplateID     *uint      `json:"template_id"`
 	Template       Template   `gorm:"foreignKey:TemplateID" json:"template,omitempty"`
-	CommitID       string     `gorm:"size:50;not null" json:"commit_id"`
+	CommitID       string     `gorm:"size:50;not null;uniqueIndex:idx_commit_target" json:"commit_id"`
 	CommitMsg      string     `gorm:"size:500;not null" json:"commit_msg"`
 	Status         string     `gorm:"size:20;default:'pending'" json:"status"`
 	Content        string     `gorm:"type:text;not null" json:"content"`

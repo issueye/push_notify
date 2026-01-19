@@ -165,13 +165,17 @@ func (c *Client) Chat(messages []Message, systemPrompt string) (string, error) {
 
 // CodeReview 进行代码审查
 func (c *Client) CodeReview(prompt, code string) (string, error) {
+	content := prompt
+	if code != "" {
+		content += "\n\n代码内容:\n" + code
+	}
+
 	messages := []Message{
 		{
 			Role:    "user",
-			Content: prompt + "\n\n代码内容:\n" + code,
+			Content: content,
 		},
 	}
-	fmt.Println("code", code)
 	return c.Chat(messages, "")
 }
 

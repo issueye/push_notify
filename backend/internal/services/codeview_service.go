@@ -143,14 +143,10 @@ func (s *CodeViewService) Review(repoID uint, input CodeViewInput) (*CodeViewRes
 		return nil, err
 	}
 
-	// 确定要发送的内容
-	codeContent := input.FileContent
-	if input.DiffContent != "" {
-		codeContent = input.DiffContent
-	}
 
 	// 调用AI
-	result, err := aiClient.CodeReview(promptText, codeContent)
+	// 提示词模板中已经包含代码内容，这里传空字符串避免重复
+	result, err := aiClient.CodeReview(promptText, "")
 	if err != nil {
 		return nil, err
 	}

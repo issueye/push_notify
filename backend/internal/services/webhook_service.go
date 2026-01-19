@@ -344,7 +344,20 @@ func (s *WebhookService) sendPushNotification(repo *models.Repo, target *models.
 		push.TemplateID = &template.ID
 	}
 
-	s.pushRepo.Create(push)
+	if err := s.pushRepo.Create(push); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "Duplicate entry") {
+			logger.Info("Duplicate push detected (DB constraint), skipping", map[string]interface{}{
+				"commit_id": payload.After[:7],
+				"target_id": target.ID,
+				"repo_name": repo.Name,
+			})
+			return
+		}
+		logger.Error("Failed to create push record", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	// 发送通知
 	var err error
@@ -726,7 +739,20 @@ func (s *WebhookService) sendGitLabPushNotification(repo *models.Repo, target *m
 		push.TemplateID = &template.ID
 	}
 
-	s.pushRepo.Create(push)
+	if err := s.pushRepo.Create(push); err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") || strings.Contains(err.Error(), "Duplicate entry") {
+			logger.Info("Duplicate GitLab push detected (DB constraint), skipping", map[string]interface{}{
+				"commit_id": payload.After[:7],
+				"target_id": target.ID,
+				"repo_name": repo.Name,
+			})
+			return
+		}
+		logger.Error("Failed to create GitLab push record", map[string]interface{}{
+			"error": err.Error(),
+		})
+		return
+	}
 
 	// 发送通知
 	var err error
