@@ -1,0 +1,41 @@
+# 应用配置
+app:
+  host: "0.0.0.0"
+  port: 8080
+  name: "Push Notify"
+  env: "development"
+
+# 数据库配置
+database:
+  driver: "sqlite"
+  path: "data.db"
+  log_mode: "debug"
+
+# Redis配置
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+  pool_size: 10
+
+# JWT配置
+jwt:
+  secret: "your-secret-key-change-in-production"
+  access_token_expire: 86400 # 24小时
+  refresh_token_expire: 604800 # 7天
+
+# 日志配置
+logging:
+  level: "info"
+  format: "json"
+  output: "stdout"
+
+# AI服务配置（可选）
+ai:
+  default_model_id: 1
+  timeout: 60
+
+# Webhook配置
+webhook:
+  signing_key: "webhook-secret-key"
