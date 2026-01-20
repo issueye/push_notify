@@ -154,7 +154,11 @@ function toggleSidebar() {
           </n-button>
         </div>
       </n-layout-header>
-      <n-layout-content class="p-6 bg-gray-50" :native-scrollbar="false">
+      <n-layout-content
+        class="p-6 bg-gray-50"
+        style="height: calc(100% - 65px)"
+        :native-scrollbar="false"
+      >
         <router-view />
       </n-layout-content>
     </n-layout>

@@ -2,3 +2,5 @@ frontend/node_modules/*
 nul
 *.db
 *.exe
+backend/static/dist/*
+frontend/dist/*
