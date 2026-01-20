@@ -82,7 +82,18 @@ func (r *RepoRepo) GetList(page, size int, keyword string) ([]models.Repo, int64
 
 // Update 更新仓库
 func (r *RepoRepo) Update(repo *models.Repo) error {
-	return r.db.Save(repo).Error
+	updates := map[string]interface{}{
+		"name":               repo.Name,
+		"url":                repo.URL,
+		"type":               repo.Type,
+		"status":             repo.Status,
+		"model_id":           repo.ModelID,
+		"commit_template_id": repo.CommitTemplateID,
+	}
+	if repo.AccessToken != "" {
+		updates["access_token"] = repo.AccessToken
+	}
+	return r.db.Model(&models.Repo{}).Where("id = ?", repo.ID).Updates(updates).Error
 }
 
 // Delete 删除仓库

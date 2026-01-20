@@ -190,11 +190,7 @@ func (s *WebhookService) sendUnifiedPushNotification(repo *models.Repo, target *
 
 	// 发送通知
 	var err error
-	if target.Type == models.TargetTypeDingTalk {
-		err = s.sendDingTalk(target, content)
-	} else if target.Type == models.TargetTypeWebhook {
-		err = s.sendWebhook(target, content)
-	}
+	err = s.sendDingTalk(target, content)
 
 	// 更新推送状态
 	if err != nil {
@@ -303,16 +299,17 @@ func (s *WebhookService) doCodeReview(repo *models.Repo, payload *UnifiedPushPay
 	}
 
 	// 更新推送记录
-	if allIssues.Len() > 0 {
-		result := allIssues.String()
-		push.CodeviewResult = &result
+	resultText := allIssues.String()
+	if strings.TrimSpace(resultText) == "" {
+		resultText = "未发现明显问题"
 	}
+	push.CodeviewResult = &resultText
 	push.CodeviewStatus = models.CodeviewStatusSuccess
 	s.pushRepo.Update(push)
 
 	// 发送审查结果通知
-	if push.CodeviewStatus == models.CodeviewStatusSuccess && allIssues.Len() > 0 {
-		s.sendReviewNotification(repo, push, codeFiles, allIssues.String())
+	if push.CodeviewStatus == models.CodeviewStatusSuccess {
+		s.sendReviewNotification(repo, push, codeFiles, resultText)
 	}
 
 	logger.Info("Code review completed", map[string]interface{}{
@@ -402,6 +399,10 @@ func detectLanguage(filename string) string {
 
 // sendDingTalk 发送钉钉通知
 func (s *WebhookService) sendDingTalk(target *models.Target, content string) error {
+	return s.sendDingTalkMarkdown(target, "代码提交通知", content)
+}
+
+func (s *WebhookService) sendDingTalkMarkdown(target *models.Target, title string, content string) error {
 	if target.Config == nil {
 		return fmt.Errorf("config is required for DingTalk target")
 	}
@@ -415,8 +416,6 @@ func (s *WebhookService) sendDingTalk(target *models.Target, content string) err
 
 	client := dingtalk.NewClient(accessToken, secret)
 
-	// 解析内容生成Markdown
-	title := "代码提交通知"
 	return client.SendMarkdown(target.Config.WebhookURL, title, content)
 }
 
@@ -516,13 +515,19 @@ func (s *WebhookService) sendReviewNotification(repo *models.Repo, push *models.
 	for _, tpl := range templatesToSend {
 		content := s.buildReviewMessageContent(repo, push, issues, tpl)
 		for _, target := range targets {
-			s.sendDingTalk(&target, content)
+			if target.Type == models.TargetTypeDingTalk {
+				s.sendDingTalkMarkdown(&target, "代码审查报告", content)
+			}
 		}
 	}
 }
 
 // buildReviewMessageContent 构建审查结果消息内容
 func (s *WebhookService) buildReviewMessageContent(repo *models.Repo, push *models.Push, issues string, template *models.Template) string {
+	if strings.TrimSpace(issues) == "" {
+		issues = "未发现明显问题"
+	}
+
 	if template == nil || template.Content == "" {
 		var content strings.Builder
 		content.WriteString("## 代码审查报告\n\n")

@@ -83,16 +83,18 @@ func (s *RepoService) Create(data models.CreateRepo) (*models.Repo, error) {
 
 	// 绑定审查模板
 	if len(data.ReviewTemplates) > 0 {
+		// 去重
+		uniqueTemplates := deduplicateReviewTemplates(data.ReviewTemplates)
 		var configs []models.RepoTemplateConfig
-		for _, rt := range data.ReviewTemplates {
+		for _, rt := range uniqueTemplates {
 			templateID := rt.TemplateID
 			language := rt.Language
 			if templateID > 0 {
-					configs = append(configs, models.RepoTemplateConfig{
-						TemplateID: uint(templateID),
-						Language:   language,
-					})
-				}
+				configs = append(configs, models.RepoTemplateConfig{
+					TemplateID: uint(templateID),
+					Language:   language,
+				})
+			}
 		}
 		if len(configs) > 0 {
 			s.repoRepo.InsertReviewTemplates(repo.ID, configs)
@@ -166,7 +168,9 @@ func (s *RepoService) Update(id uint, data models.UpdateRepo) error {
 		return err
 	}
 	if len(data.ReviewTemplates) > 0 {
-		if err := s.repoRepo.InsertReviewTemplates(repo.ID, data.ReviewTemplates); err != nil {
+		// 去重
+		uniqueTemplates := deduplicateReviewTemplates(data.ReviewTemplates)
+		if err := s.repoRepo.InsertReviewTemplates(repo.ID, uniqueTemplates); err != nil {
 			return err
 		}
 	}
@@ -248,4 +252,19 @@ func isValidGitURL(url string) bool {
 		strings.HasPrefix(url, "https://") ||
 		strings.HasPrefix(url, "git@") ||
 		strings.HasPrefix(url, "ssh://")
+}
+
+// deduplicateReviewTemplates 去重审查模板配置
+func deduplicateReviewTemplates(templates []models.RepoTemplateConfig) []models.RepoTemplateConfig {
+	seen := make(map[string]struct{})
+	var result []models.RepoTemplateConfig
+	for _, t := range templates {
+		// 统一转换为小写进行比较，避免大小写造成的重复
+		langKey := strings.ToLower(t.Language)
+		if _, ok := seen[langKey]; !ok {
+			seen[langKey] = struct{}{}
+			result = append(result, t)
+		}
+	}
+	return result
 }

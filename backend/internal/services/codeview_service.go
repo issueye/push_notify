@@ -104,9 +104,14 @@ func (s *CodeViewService) Review(repoID uint, input CodeViewInput) (*CodeViewRes
 		if err == nil {
 			var params map[string]interface{}
 			json.Unmarshal([]byte(model.Params), &params)
+			modelName := strings.TrimSpace(model.Name)
+			if modelName == "" {
+				modelName = strings.TrimSpace(model.Type)
+			}
 			aiClient = ai.NewClientWithConfig(ai.Config{
 				APIURL: model.APIURL,
 				APIKey: model.APIKey,
+				Model:  modelName,
 				Params: params,
 			})
 		}
@@ -118,9 +123,14 @@ func (s *CodeViewService) Review(repoID uint, input CodeViewInput) (*CodeViewRes
 		if err == nil {
 			var params map[string]interface{}
 			json.Unmarshal([]byte(model.Params), &params)
+			modelName := strings.TrimSpace(model.Name)
+			if modelName == "" {
+				modelName = strings.TrimSpace(model.Type)
+			}
 			aiClient = ai.NewClientWithConfig(ai.Config{
 				APIURL: model.APIURL,
 				APIKey: model.APIKey,
+				Model:  modelName,
 				Params: params,
 			})
 		}
