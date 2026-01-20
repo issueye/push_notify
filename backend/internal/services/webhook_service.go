@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 	"time"
 
 	"backend/internal/models"
@@ -28,10 +29,11 @@ type WebhookService struct {
 	promptRepo   *repository.PromptRepo
 	modelRepo    *repository.AIModelRepo
 	codeviewServ *CodeViewService
+	codeReviewQ  *CodeReviewQueue
 }
 
 func NewWebhookService(db *gorm.DB) *WebhookService {
-	return &WebhookService{
+	s := &WebhookService{
 		db:           db,
 		repoRepo:     repository.NewRepoRepo(db),
 		targetRepo:   repository.NewTargetRepo(db),
@@ -41,6 +43,8 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 		modelRepo:    repository.NewAIModelRepo(db),
 		codeviewServ: NewCodeViewService(db),
 	}
+	s.codeReviewQ = NewCodeReviewQueue(200, 2, s.processCodeReviewJob)
+	return s
 }
 
 // HandleGitHubWebhook 处理GitHub Webhook
@@ -213,24 +217,39 @@ func (s *WebhookService) sendUnifiedPushNotification(repo *models.Repo, target *
 
 	// 执行代码审查 (异步)
 	if push.Status == models.PushStatusSuccess && repo.ModelID != nil {
-		go func() {
-			s.doCodeReview(repo, payload, push)
-		}()
+		s.codeReviewQ.Enqueue(CodeReviewJob{
+			RepoID:   repo.ID,
+			PushID:   push.ID,
+			CommitID: payload.After,
+			Branch:   payload.Branch,
+		})
 	}
 }
 
-// doCodeReview 执行代码审查
-func (s *WebhookService) doCodeReview(repo *models.Repo, payload *UnifiedPushPayload, push *models.Push) {
+func (s *WebhookService) processCodeReviewJob(job CodeReviewJob) {
+	repo, err := s.repoRepo.GetByID(job.RepoID)
+	if err != nil {
+		logger.Error("Repo not found for codeview", map[string]interface{}{
+			"repo_id": job.RepoID,
+		})
+		return
+	}
+
+	push, err := s.pushRepo.GetByID(job.PushID)
+	if err != nil {
+		logger.Error("Push not found for codeview", map[string]interface{}{
+			"push_id": job.PushID,
+		})
+		return
+	}
+
 	logger.Info("Starting code review", map[string]interface{}{
 		"repo_id":   repo.ID,
-		"commit_id": payload.After,
+		"commit_id": job.CommitID,
 	})
 
-	// 更新状态为进行中
-	push.CodeviewStatus = models.CodeviewStatusPending
-	s.pushRepo.Update(push)
+	s.pushRepo.UpdateCodeview(repo.ID, job.CommitID, models.CodeviewStatusPending, nil)
 
-	// 根据仓库类型创建Git客户端
 	// 默认使用 go-git
 	gitClient := git.NewGoGitClient(repo.URL, repo.AccessToken)
 	if gitClient == nil {
@@ -238,21 +257,21 @@ func (s *WebhookService) doCodeReview(repo *models.Repo, payload *UnifiedPushPay
 			"repo_id": repo.ID,
 			"type":    repo.Type,
 		})
-		push.CodeviewStatus = models.CodeviewStatusSkipped
-		s.pushRepo.Update(push)
+		resultText := "不支持的仓库类型，已跳过"
+		s.pushRepo.UpdateCodeview(repo.ID, job.CommitID, models.CodeviewStatusSkipped, &resultText)
 		return
 	}
 
 	// 获取差异文件
-	files, err := gitClient.GetSingleCommitDiff(payload.After)
+	files, err := gitClient.GetSingleCommitDiff(job.CommitID)
 	if err != nil {
 		logger.Error("Failed to get diff", map[string]interface{}{
 			"repo_id":   repo.ID,
-			"commit_id": payload.After,
+			"commit_id": job.CommitID,
 			"error":     err.Error(),
 		})
-		push.CodeviewStatus = models.CodeviewStatusFailed
-		s.pushRepo.Update(push)
+		resultText := "获取差异失败: " + err.Error()
+		s.pushRepo.UpdateCodeview(repo.ID, job.CommitID, models.CodeviewStatusFailed, &resultText)
 		return
 	}
 
@@ -261,60 +280,97 @@ func (s *WebhookService) doCodeReview(repo *models.Repo, payload *UnifiedPushPay
 	if len(codeFiles) == 0 {
 		logger.Info("No code files to review", map[string]interface{}{
 			"repo_id":   repo.ID,
-			"commit_id": payload.After,
+			"commit_id": job.CommitID,
 			"files":     len(files),
 		})
-		push.CodeviewStatus = models.CodeviewStatusSkipped
-		s.pushRepo.Update(push)
+		resultText := "无代码文件，已跳过"
+		s.pushRepo.UpdateCodeview(repo.ID, job.CommitID, models.CodeviewStatusSkipped, &resultText)
+		s.sendReviewNotification(repo, push, codeFiles, resultText)
 		return
 	}
 
-	// 获取分支
-	branch := payload.Branch
+	type fileTask struct {
+		file git.DiffFile
+	}
+	type fileResult struct {
+		fileName string
+		summary  string
+		err      error
+	}
 
-	// 批量审查
+	fileCh := make(chan fileTask, len(codeFiles))
+	resultCh := make(chan fileResult, len(codeFiles))
+
+	workerCount := 3
+	if workerCount > len(codeFiles) {
+		workerCount = len(codeFiles)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(workerCount)
+	for i := 0; i < workerCount; i++ {
+		go func() {
+			defer wg.Done()
+			for task := range fileCh {
+				input := CodeViewInput{
+					FileName:    task.file.Filename,
+					DiffContent: task.file.Patch,
+					RepoName:    repo.Name,
+					Branch:      job.Branch,
+					CommitMsg:   push.CommitMsg,
+					Language:    detectLanguage(task.file.Filename),
+				}
+
+				res, err := s.codeviewServ.Review(repo.ID, input)
+				if err != nil {
+					resultCh <- fileResult{fileName: task.file.Filename, err: err}
+					continue
+				}
+
+				if res != nil {
+					resultCh <- fileResult{fileName: task.file.Filename, summary: strings.TrimSpace(res.Summary)}
+				} else {
+					resultCh <- fileResult{fileName: task.file.Filename}
+				}
+			}
+		}()
+	}
+
+	for _, f := range codeFiles {
+		fileCh <- fileTask{file: f}
+	}
+	close(fileCh)
+
+	wg.Wait()
+	close(resultCh)
+
 	var allIssues strings.Builder
-	for _, file := range codeFiles {
-		input := CodeViewInput{
-			FileName:    file.Filename,
-			DiffContent: file.Patch,
-			RepoName:    repo.Name,
-			Branch:      branch,
-			CommitMsg:   payload.CommitMsg,
-			Language:    detectLanguage(file.Filename),
-		}
-
-		result, err := s.codeviewServ.Review(repo.ID, input)
-		if err != nil {
+	for r := range resultCh {
+		if r.err != nil {
 			logger.Error("Failed to review file", map[string]interface{}{
-				"file_name": file.Filename,
-				"error":     err.Error(),
+				"file_name": r.fileName,
+				"error":     r.err.Error(),
 			})
+			allIssues.WriteString(fmt.Sprintf("### %s\n审查失败: %s\n\n", r.fileName, r.err.Error()))
 			continue
 		}
-
-		if result != nil && result.Summary != "" {
-			allIssues.WriteString(fmt.Sprintf("### %s\n%s\n\n", file.Filename, result.Summary))
+		if r.summary != "" {
+			allIssues.WriteString(fmt.Sprintf("### %s\n%s\n\n", r.fileName, r.summary))
 		}
 	}
 
-	// 更新推送记录
-	resultText := allIssues.String()
+	resultText := strings.TrimSpace(allIssues.String())
 	if strings.TrimSpace(resultText) == "" {
 		resultText = "未发现明显问题"
 	}
-	push.CodeviewResult = &resultText
-	push.CodeviewStatus = models.CodeviewStatusSuccess
-	s.pushRepo.Update(push)
+	s.pushRepo.UpdateCodeview(repo.ID, job.CommitID, models.CodeviewStatusSuccess, &resultText)
 
 	// 发送审查结果通知
-	if push.CodeviewStatus == models.CodeviewStatusSuccess {
-		s.sendReviewNotification(repo, push, codeFiles, resultText)
-	}
+	s.sendReviewNotification(repo, push, codeFiles, resultText)
 
 	logger.Info("Code review completed", map[string]interface{}{
 		"repo_id":   repo.ID,
-		"commit_id": payload.After,
+		"commit_id": job.CommitID,
 		"files":     len(codeFiles),
 	})
 }

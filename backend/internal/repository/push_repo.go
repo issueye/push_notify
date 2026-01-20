@@ -65,6 +65,18 @@ func (r *PushRepo) Update(push *models.Push) error {
 	return r.db.Save(push).Error
 }
 
+func (r *PushRepo) UpdateCodeview(repoID uint, commitID string, status string, result *string) error {
+	updates := map[string]interface{}{
+		"codeview_status": status,
+	}
+	if result != nil {
+		updates["codeview_result"] = *result
+	}
+	return r.db.Model(&models.Push{}).
+		Where("repo_id = ? AND commit_id = ?", repoID, commitID).
+		Updates(updates).Error
+}
+
 // UpdateStatus 更新推送状态
 func (r *PushRepo) UpdateStatus(id uint, status, errorMsg string) error {
 	updates := map[string]interface{}{
