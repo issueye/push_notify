@@ -29,6 +29,17 @@ func (r *TemplateRepo) GetByID(id uint) (*models.Template, error) {
 	return &template, nil
 }
 
+// GetByNameTypeScene 根据名称、类型和场景获取模板
+func (r *TemplateRepo) GetByNameTypeScene(name, templateType, scene string) (*models.Template, error) {
+	var template models.Template
+	err := r.db.Where("name = ? AND type = ? AND scene = ?", name, templateType, scene).
+		First(&template).Error
+	if err != nil {
+		return nil, err
+	}
+	return &template, nil
+}
+
 // GetByTypeAndScene 根据类型和场景获取默认模板
 func (r *TemplateRepo) GetByTypeAndScene(templateType, scene string) (*models.Template, error) {
 	var template models.Template

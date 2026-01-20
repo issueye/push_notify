@@ -12,7 +12,7 @@ import (
 
 var (
 	ErrTemplateNotFound      = errors.New("模板不存在")
-	ErrTemplateAlreadyExists = errors.New("模板名称已存在")
+	ErrTemplateAlreadyExists = errors.New("该场景下的模板名称已存在")
 )
 
 type TemplateService struct {
@@ -30,6 +30,11 @@ func (s *TemplateService) Create(data map[string]interface{}) (*models.Template,
 	name := data["name"].(string)
 	templateType := data["type"].(string)
 	scene := data["scene"].(string)
+
+	// 检查是否已存在
+	if exist, _ := s.templateRepo.GetByNameTypeScene(name, templateType, scene); exist != nil {
+		return nil, ErrTemplateAlreadyExists
+	}
 
 	template := &models.Template{
 		Name:    name,
@@ -76,7 +81,11 @@ func (s *TemplateService) Update(id uint, data map[string]interface{}) error {
 		return err
 	}
 
-	if name, ok := data["name"].(string); ok && name != "" {
+	if name, ok := data["name"].(string); ok && name != "" && name != template.Name {
+		// 检查是否已存在
+		if exist, _ := s.templateRepo.GetByNameTypeScene(name, template.Type, template.Scene); exist != nil {
+			return ErrTemplateAlreadyExists
+		}
 		template.Name = name
 	}
 	if title, ok := data["title"].(string); ok && title != "" {
