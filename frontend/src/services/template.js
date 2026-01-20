@@ -31,3 +31,7 @@ export function rollbackTemplate(id, version) {
 export function testTemplate(id, targetId) {
   return $post(`/templates/${id}/test`, { target_id: targetId })
 }
+
+export function generateTemplate(data) {
+  return $post('/templates/generate', data)
+}

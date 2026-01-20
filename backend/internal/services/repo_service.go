@@ -32,8 +32,8 @@ func NewRepoService(db *gorm.DB) *RepoService {
 }
 
 // Create 创建仓库
-func (s *RepoService) Create(data map[string]interface{}) (*models.Repo, error) {
-	name := data["name"].(string)
+func (s *RepoService) Create(data models.CreateRepo) (*models.Repo, error) {
+	name := data.Name
 
 	// 检查名称是否重复
 	_, err := s.repoRepo.GetByName(name)
@@ -45,7 +45,7 @@ func (s *RepoService) Create(data map[string]interface{}) (*models.Repo, error) 
 	}
 
 	// 验证URL格式
-	url := data["url"].(string)
+	url := data.URL
 	if !isValidGitURL(url) {
 		return nil, ErrInvalidRepoURL
 	}
@@ -60,34 +60,49 @@ func (s *RepoService) Create(data map[string]interface{}) (*models.Repo, error) 
 	repo := &models.Repo{
 		Name:          name,
 		URL:           url,
-		Type:          data["type"].(string),
-		AccessToken:   getString(data, "access_token"),
+		Type:          data.Type,
 		WebhookURL:    webhookURL,
 		WebhookSecret: webhookSecret,
 		Status:        models.RepoStatusActive,
 	}
 
-	if modelID, ok := data["model_id"].(uint); ok && modelID > 0 {
-		repo.ModelID = &modelID
-	}
+	repo.ModelID = data.ModelID
+	repo.CommitTemplateID = data.CommitTemplateID
 
 	if err := s.repoRepo.Create(repo); err != nil {
 		return nil, err
 	}
 
 	// 绑定推送目标
-	if targetIDs, ok := data["target_ids"].([]interface{}); ok {
-		for _, id := range targetIDs {
-			if targetID, ok := id.(float64); ok {
-				s.repoRepo.AddTarget(repo.ID, uint(targetID))
-			}
+	if len(data.TargetIds) > 0 {
+		if err := s.repoRepo.InsertTargets(repo.ID, data.TargetIds); err != nil {
+			return nil, err
+		}
+	}
+
+	// 绑定审查模板
+	if len(data.ReviewTemplates) > 0 {
+		var configs []models.RepoTemplateConfig
+		for _, rt := range data.ReviewTemplates {
+			templateID := rt.TemplateID
+			language := rt.Language
+			if templateID > 0 {
+					configs = append(configs, models.RepoTemplateConfig{
+						TemplateID: uint(templateID),
+						Language:   language,
+					})
+				}
+		}
+		if len(configs) > 0 {
+			s.repoRepo.InsertReviewTemplates(repo.ID, configs)
 		}
 	}
 
 	logger.Info("Repo created", map[string]interface{}{
 		"repo_id": repo.ID,
 		"name":    repo.Name,
-		"targets": data["target_ids"],
+		"targets": data.TargetIds,
+		"review_templates": data.ReviewTemplates,
 	})
 
 	return repo, nil
@@ -117,6 +132,7 @@ func (s *RepoService) Update(id uint, data models.UpdateRepo) error {
 	repo.Type = data.Type
 	repo.Status = data.Status
 	repo.ModelID = data.ModelID
+	repo.CommitTemplateID = data.CommitTemplateID
 
 	if len(data.TargetIds) > 0 {
 		// 删除再写入
@@ -125,6 +141,27 @@ func (s *RepoService) Update(id uint, data models.UpdateRepo) error {
 		}
 
 		if err := s.repoRepo.InsertTargets(repo.ID, data.TargetIds); err != nil {
+			return err
+		}
+	} else {
+		// 如果为空，也要删除（因为是全量更新）
+		if err := s.repoRepo.DeleteTargets(repo.ID); err != nil {
+			return err
+		}
+	}
+
+	// 清除 Gorm 加载的关联，避免 Save 时重复插入
+	repo.Targets = nil
+	repo.RepoTargets = nil
+
+	// 更新审查模板 (全量更新：先删后加)
+	// 即使 data.ReviewTemplates 为空也可能意味着清空配置，所以只要字段存在（这里无法判断字段是否存在，假设总是更新）
+	// 但是为了安全起见，我们假设前端总是传全量。
+	if err := s.repoRepo.DeleteReviewTemplates(repo.ID); err != nil {
+		return err
+	}
+	if len(data.ReviewTemplates) > 0 {
+		if err := s.repoRepo.InsertReviewTemplates(repo.ID, data.ReviewTemplates); err != nil {
 			return err
 		}
 	}

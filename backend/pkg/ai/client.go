@@ -15,7 +15,8 @@ import (
 type Config struct {
 	APIURL  string
 	APIKey  string
-	Timeout int // 秒
+	Model   string // 模型名称
+	Timeout int    // 秒
 	Params  map[string]interface{}
 }
 
@@ -108,8 +109,13 @@ func (c *Client) Chat(messages []Message, systemPrompt string) (string, error) {
 	allMessages = append(allMessages, messages...)
 
 	// 构建请求
+	model := c.config.Model
+	if model == "" {
+		model = "gpt-4" // 默认值
+	}
+
 	req := Request{
-		Model:    "gpt-4", // 可配置
+		Model:    model,
 		Messages: allMessages,
 	}
 
@@ -130,7 +136,7 @@ func (c *Client) Chat(messages []Message, systemPrompt string) (string, error) {
 		return "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequest("POST", c.config.APIURL, bytes.NewReader(body))
+	httpReq, err := http.NewRequest("POST", c.config.APIURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -148,7 +154,7 @@ func (c *Client) Chat(messages []Message, systemPrompt string) (string, error) {
 	respBody, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("api error: %s", string(respBody))
+		return "", fmt.Errorf("api error: status=%d body=%s", resp.StatusCode, string(respBody))
 	}
 
 	var response Response

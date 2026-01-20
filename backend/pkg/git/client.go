@@ -8,6 +8,12 @@ import (
 	"strings"
 )
 
+// GitClient Git客户端接口
+type GitClient interface {
+	GetDiff(base, head string) ([]DiffFile, error)
+	GetSingleCommitDiff(commitSHA string) ([]DiffFile, error)
+}
+
 // Client Git客户端
 type Client struct {
 	baseURL   string

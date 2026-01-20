@@ -32,7 +32,9 @@ import {
   deleteTemplate,
   updateTemplateStatus,
   getTemplateDetail,
+  generateTemplate,
 } from "@/services/template";
+import { getModelList } from "@/services/model";
 import { usePagination } from "@/composables/useMessage";
 
 const message = useMessage();
@@ -45,6 +47,10 @@ const searchType = ref(null);
 const showModal = ref(false);
 const submitting = ref(false);
 const modalMode = ref("create");
+const generating = ref(false);
+const models = ref([]);
+const modelOptions = ref([]);
+const selectedModelId = ref(null);
 
 const typeOptions = [
   { label: "全部类型", value: null },
@@ -181,9 +187,55 @@ async function fetchTemplates() {
   }
 }
 
+async function fetchModels() {
+  try {
+    const data = await getModelList({ page: 1, size: 100 });
+    models.value = data.list || [];
+    modelOptions.value = models.value.map((m) => ({
+      label: m.name,
+      value: m.id,
+    }));
+    if (models.value.length > 0) {
+      selectedModelId.value = models.value[0].id;
+    }
+  } catch (e) {
+    console.error("Failed to fetch models", e);
+  }
+}
+
+async function handleGenerate() {
+  if (!form.name || !form.title) {
+    message.warning("请先填写模板名称和标题，以便AI更准确地生成内容");
+    return;
+  }
+
+  generating.value = true;
+  try {
+    const res = await generateTemplate({
+      name: form.name,
+      type: form.type,
+      scene: form.scene,
+      title: form.title,
+      model_id: selectedModelId.value,
+    });
+
+    if (res && res.content) {
+      form.content = res.content;
+      message.success("模板生成成功");
+    }
+  } catch (e) {
+    message.error("模板生成失败");
+  } finally {
+    generating.value = false;
+  }
+}
+
 function handleAdd() {
   modalMode.value = "create";
   Object.assign(form, defaultForm);
+  if (modelOptions.value.length === 0) {
+    fetchModels();
+  }
   showModal.value = true;
 }
 
@@ -195,6 +247,11 @@ async function handleEdit(row) {
   form.scene = row.scene;
   form.title = row.title;
   form.content = row.content;
+
+  if (modelOptions.value.length === 0) {
+    fetchModels();
+  }
+
   showModal.value = true;
 }
 
@@ -315,12 +372,39 @@ onMounted(fetchTemplates);
           />
         </n-form-item>
         <n-form-item label="模板内容" required>
-          <n-input
-            v-model:value="form.content"
-            type="textarea"
-            :rows="8"
-            placeholder="消息内容，支持变量替换，如 {{.RepoName}}, {{.CommitMsg}} 等"
-          />
+          <div class="flex flex-col w-full gap-2">
+            <div class="flex items-center gap-2 mb-2 bg-gray-50 p-3 rounded">
+              <span class="text-sm text-gray-500 whitespace-nowrap"
+                >AI 辅助生成:</span
+              >
+              <n-select
+                v-model:value="selectedModelId"
+                :options="modelOptions"
+                placeholder="选择模型"
+                size="small"
+                style="width: 200px"
+              />
+              <n-button
+                type="info"
+                size="small"
+                :loading="generating"
+                @click="handleGenerate"
+                :disabled="!form.name || !form.title"
+              >
+                <template #icon
+                  ><n-icon><CreateOutline /></n-icon
+                ></template>
+                一键生成内容
+              </n-button>
+              <span class="text-xs text-gray-400 ml-2">需先填写名称和标题</span>
+            </div>
+            <n-input
+              v-model:value="form.content"
+              type="textarea"
+              :rows="8"
+              placeholder="消息内容，支持变量替换，如 {{.RepoName}}, {{.CommitMsg}} 等"
+            />
+          </div>
         </n-form-item>
       </n-form>
       <div class="flex justify-end gap-2 mt-4">

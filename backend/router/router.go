@@ -38,6 +38,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	repoService := services.NewRepoService(db)
 	targetService := services.NewTargetService(db)
 	templateService := services.NewTemplateService(db)
+	generateTemplateService := services.NewGenerateTemplateService(db)
 	promptService := services.NewPromptService(db)
 	modelService := services.NewAIModelService(db)
 	pushService := services.NewPushService(db)
@@ -48,7 +49,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 	authHandler := handlers.NewAuthHandler(authService)
 	repoHandler := handlers.NewRepoHandler(repoService)
 	targetHandler := handlers.NewTargetHandler(targetService)
-	templateHandler := handlers.NewTemplateHandler(templateService)
+	templateHandler := handlers.NewTemplateHandler(templateService, generateTemplateService)
 	promptHandler := handlers.NewPromptHandler(promptService)
 	modelHandler := handlers.NewModelHandler(modelService)
 	pushHandler := handlers.NewPushHandler(pushService)
@@ -126,6 +127,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 			templates.DELETE("/:id", templateHandler.Delete)
 			templates.PUT("/:id/status", templateHandler.SetStatus)
 			templates.POST("/:id/rollback", templateHandler.Rollback)
+			templates.POST("/generate", templateHandler.Generate)
 		}
 
 		// 提示词

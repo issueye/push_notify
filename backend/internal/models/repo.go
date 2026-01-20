@@ -16,6 +16,12 @@ type Repo struct {
 	WebhookSecret string         `gorm:"size:100" json:"-"`
 	ModelID       *uint          `json:"model_id"`
 	Model         *AIModel       `gorm:"foreignKey:ModelID" json:"model,omitempty"`
+	
+	// 模板关联
+	CommitTemplateID *uint          `json:"commit_template_id"`
+	CommitTemplate   *Template      `gorm:"foreignKey:CommitTemplateID" json:"commit_template,omitempty"`
+	ReviewTemplates  []RepoTemplate `gorm:"foreignKey:RepoID" json:"review_templates,omitempty"`
+
 	Status        string         `gorm:"size:20;default:'active'" json:"status"`
 	CreatedAt     time.Time      `json:"created_at"`
 	UpdatedAt     time.Time      `json:"updated_at"`
@@ -41,11 +47,29 @@ const (
 )
 
 type UpdateRepo struct {
-	ID        uint   `json:"id"`
-	Name      string `json:"name"`
-	URL       string `json:"url"`
-	Type      string `json:"type"` // github, gitlab, gitee
-	Status    string `json:"status"`
-	ModelID   *uint  `json:"model_id"`
-	TargetIds []uint `json:"target_ids"`
+	ID               uint                `json:"id"`
+	Name             string              `json:"name"`
+	URL              string              `json:"url"`
+	Type             string              `json:"type"` // github, gitlab, gitee
+	Status           string              `json:"status"`
+	ModelID          *uint               `json:"model_id"`
+	TargetIds        []uint              `json:"target_ids"`
+	CommitTemplateID *uint               `json:"commit_template_id"`
+	ReviewTemplates  []RepoTemplateConfig `json:"review_templates"`
+}
+
+type CreateRepo struct {
+	Name             string              `json:"name"`
+	URL              string              `json:"url"`
+	Type             string              `json:"type"` // github, gitlab, gitee
+	Status           string              `json:"status"`
+	ModelID          *uint               `json:"model_id"`
+	TargetIds        []uint              `json:"target_ids"`
+	CommitTemplateID *uint               `json:"commit_template_id"`
+	ReviewTemplates  []RepoTemplateConfig `json:"review_templates"`
+}
+
+type RepoTemplateConfig struct {
+	TemplateID uint   `json:"template_id"`
+	Language   string `json:"language"`
 }

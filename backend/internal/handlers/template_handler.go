@@ -9,10 +9,14 @@ import (
 
 type TemplateHandler struct {
 	templateService *services.TemplateService
+	generateService *services.GenerateTemplateService
 }
 
-func NewTemplateHandler(templateService *services.TemplateService) *TemplateHandler {
-	return &TemplateHandler{templateService: templateService}
+func NewTemplateHandler(templateService *services.TemplateService, generateService *services.GenerateTemplateService) *TemplateHandler {
+	return &TemplateHandler{
+		templateService: templateService,
+		generateService: generateService,
+	}
 }
 
 // List 获取模板列表
@@ -125,4 +129,23 @@ func (h *TemplateHandler) Rollback(c *gin.Context) {
 
 	// TODO: 实现版本回滚逻辑
 	utils.SuccessWithMsg(c, "回滚成功", nil)
+}
+
+// Generate 生成模板内容
+func (h *TemplateHandler) Generate(c *gin.Context) {
+	var input services.GenerateTemplateInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.ValidateError(c, []string{err.Error()})
+		return
+	}
+
+	content, err := h.generateService.Generate(input)
+	if err != nil {
+		utils.Fail(c, 500, err.Error())
+		return
+	}
+
+	utils.Success(c, map[string]string{
+		"content": content,
+	})
 }

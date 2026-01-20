@@ -33,7 +33,7 @@ func (h *RepoHandler) List(c *gin.Context) {
 
 // Create 创建仓库
 func (h *RepoHandler) Create(c *gin.Context) {
-	var data map[string]interface{}
+	var data models.CreateRepo
 	if err := c.ShouldBindJSON(&data); err != nil {
 		utils.ValidateError(c, []string{err.Error()})
 		return

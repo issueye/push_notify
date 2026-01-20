@@ -22,7 +22,12 @@ func (r *RepoRepo) Create(repo *models.Repo) error {
 // GetByID 根据ID获取仓库
 func (r *RepoRepo) GetByID(id uint) (*models.Repo, error) {
 	var repo models.Repo
-	err := r.db.Preload("Model").Preload("Targets").First(&repo, id).Error
+	err := r.db.Preload("Model").
+		Preload("Targets").
+		Preload("CommitTemplate").
+		Preload("ReviewTemplates").
+		Preload("ReviewTemplates.Template").
+		First(&repo, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +37,11 @@ func (r *RepoRepo) GetByID(id uint) (*models.Repo, error) {
 // GetByWebhookID 根据WebhookID获取仓库
 func (r *RepoRepo) GetByWebhookID(webhookID string) (*models.Repo, error) {
 	var repo models.Repo
-	err := r.db.Where("webhook_url LIKE ?", "%"+webhookID+"%").First(&repo).Error
+	err := r.db.Where("webhook_url LIKE ?", "%"+webhookID+"%").
+		Preload("CommitTemplate").
+		Preload("ReviewTemplates").
+		Preload("ReviewTemplates.Template").
+		First(&repo).Error
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +69,10 @@ func (r *RepoRepo) GetList(page, size int, keyword string) ([]models.Repo, int64
 	}
 
 	// 加载关联数据
-	query.Preload("RepoTargets")
+	query.Preload("RepoTargets").
+		Preload("CommitTemplate").
+		Preload("ReviewTemplates").
+		Preload("ReviewTemplates.Template")
 
 	query.Count(&total)
 	query.Offset((page - 1) * size).Limit(size).Order("created_at DESC").Find(&repos)
@@ -77,6 +89,7 @@ func (r *RepoRepo) Update(repo *models.Repo) error {
 func (r *RepoRepo) Delete(id uint) error {
 	// 先删除关联
 	r.db.Where("repo_id = ?", id).Delete(&models.RepoTarget{})
+	r.db.Where("repo_id = ?", id).Delete(&models.RepoTemplate{})
 	return r.db.Delete(&models.Repo{}, id).Error
 }
 
@@ -104,6 +117,22 @@ func (r *RepoRepo) InsertTargets(repoID uint, targetIDs []uint) error {
 		insertData[i] = models.RepoTarget{
 			RepoID:   repoID,
 			TargetID: targetID,
+		}
+	}
+	return r.db.Create(&insertData).Error
+}
+
+func (r *RepoRepo) DeleteReviewTemplates(repoID uint) error {
+	return r.db.Where("repo_id = ?", repoID).Delete(&models.RepoTemplate{}).Error
+}
+
+func (r *RepoRepo) InsertReviewTemplates(repoID uint, configs []models.RepoTemplateConfig) error {
+	insertData := make([]models.RepoTemplate, len(configs))
+	for i, config := range configs {
+		insertData[i] = models.RepoTemplate{
+			RepoID:     repoID,
+			TemplateID: config.TemplateID,
+			Language:   config.Language,
 		}
 	}
 	return r.db.Create(&insertData).Error
