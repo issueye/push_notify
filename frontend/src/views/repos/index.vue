@@ -430,6 +430,14 @@ onMounted(() => {
         <n-form-item label="仓库类型" required>
           <n-select v-model:value="form.type" :options="repoTypeOptions" />
         </n-form-item>
+        <n-form-item label="访问令牌">
+          <n-input
+            v-model:value="form.access_token"
+            type="password"
+            show-password-on="click"
+            placeholder="请输入访问令牌 (AccessToken)，留空不修改"
+          />
+        </n-form-item>
         <n-form-item label="关联模型">
           <n-select
             v-model:value="form.model_id"

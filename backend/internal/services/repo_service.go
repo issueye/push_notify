@@ -64,6 +64,7 @@ func (s *RepoService) Create(data models.CreateRepo) (*models.Repo, error) {
 		WebhookURL:    webhookURL,
 		WebhookSecret: webhookSecret,
 		Status:        models.RepoStatusActive,
+		AccessToken:   data.AccessToken,
 	}
 
 	repo.ModelID = data.ModelID
@@ -133,6 +134,10 @@ func (s *RepoService) Update(id uint, data models.UpdateRepo) error {
 	repo.Status = data.Status
 	repo.ModelID = data.ModelID
 	repo.CommitTemplateID = data.CommitTemplateID
+
+	if data.AccessToken != "" {
+		repo.AccessToken = data.AccessToken
+	}
 
 	if len(data.TargetIds) > 0 {
 		// 删除再写入

@@ -56,6 +56,7 @@ type UpdateRepo struct {
 	TargetIds        []uint              `json:"target_ids"`
 	CommitTemplateID *uint               `json:"commit_template_id"`
 	ReviewTemplates  []RepoTemplateConfig `json:"review_templates"`
+	AccessToken      string              `json:"access_token"`
 }
 
 type CreateRepo struct {
@@ -67,6 +68,7 @@ type CreateRepo struct {
 	TargetIds        []uint              `json:"target_ids"`
 	CommitTemplateID *uint               `json:"commit_template_id"`
 	ReviewTemplates  []RepoTemplateConfig `json:"review_templates"`
+	AccessToken      string              `json:"access_token"`
 }
 
 type RepoTemplateConfig struct {
