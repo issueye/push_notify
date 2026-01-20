@@ -200,26 +200,13 @@ func Setup(cfg *config.Config) *gin.Engine {
 
 	// 静态资源服务
 	staticFS := static.GetStaticFS()
-	fileServer := http.FileServer(http.FS(staticFS))
-
+	
+	// 处理 /web 前缀
 	r.StaticFS("/web", http.FS(staticFS))
 
-	r.NoRoute(func(c *gin.Context) {
-		path := c.Request.URL.Path
-		// 如果请求的是 API 或 Webhook，则不处理静态资源（应该已经匹配到了，但为了安全起见）
-		if len(path) >= 4 && path[:4] == "/api" || len(path) >= 8 && path[:8] == "/webhook" {
-			return
-		}
-
-		// 检查静态资源是否存在
-		_, err := staticFS.Open(path[1:])
-		if err == nil {
-			fileServer.ServeHTTP(c.Writer, c.Request)
-			return
-		}
-
-		// 如果资源不存在，则返回 index.html (SPA)
-		c.FileFromFS("index.html", http.FS(staticFS))
+	// 根路径重定向到 /web/
+	r.GET("/", func(c *gin.Context) {
+		c.Redirect(http.StatusFound, "/web/")
 	})
 
 	return r
