@@ -10,10 +10,14 @@ import (
 
 type RepoHandler struct {
 	repoService *services.RepoService
+	logService  *services.LogService
 }
 
-func NewRepoHandler(repoService *services.RepoService) *RepoHandler {
-	return &RepoHandler{repoService: repoService}
+func NewRepoHandler(repoService *services.RepoService, logService *services.LogService) *RepoHandler {
+	return &RepoHandler{
+		repoService: repoService,
+		logService:  logService,
+	}
 }
 
 // List 获取仓库列表
@@ -45,6 +49,7 @@ func (h *RepoHandler) Create(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "repo", "创建仓库", "repo", repo.ID, data)
 	utils.SuccessWithMsg(c, "创建成功", repo)
 }
 
@@ -75,6 +80,7 @@ func (h *RepoHandler) Update(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "repo", "更新仓库", "repo", id, data)
 	utils.SuccessWithMsg(c, "更新成功", nil)
 }
 
@@ -87,6 +93,7 @@ func (h *RepoHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "repo", "删除仓库", "repo", id, nil)
 	utils.SuccessWithMsg(c, "删除成功", nil)
 }
 

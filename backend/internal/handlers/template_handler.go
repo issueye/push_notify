@@ -10,12 +10,14 @@ import (
 type TemplateHandler struct {
 	templateService *services.TemplateService
 	generateService *services.GenerateTemplateService
+	logService      *services.LogService
 }
 
-func NewTemplateHandler(templateService *services.TemplateService, generateService *services.GenerateTemplateService) *TemplateHandler {
+func NewTemplateHandler(templateService *services.TemplateService, generateService *services.GenerateTemplateService, logService *services.LogService) *TemplateHandler {
 	return &TemplateHandler{
 		templateService: templateService,
 		generateService: generateService,
+		logService:      logService,
 	}
 }
 
@@ -50,6 +52,7 @@ func (h *TemplateHandler) Create(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "template", "创建模板", "template", template.ID, data)
 	utils.SuccessWithMsg(c, "创建成功", template)
 }
 
@@ -80,6 +83,7 @@ func (h *TemplateHandler) Update(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "template", "更新模板", "template", id, data)
 	utils.SuccessWithMsg(c, "更新成功", nil)
 }
 
@@ -92,6 +96,7 @@ func (h *TemplateHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "template", "删除模板", "template", id, nil)
 	utils.SuccessWithMsg(c, "删除成功", nil)
 }
 

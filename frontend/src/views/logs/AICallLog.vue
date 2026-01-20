@@ -7,6 +7,7 @@ import {
   NButton,
   NSpace,
   NTag,
+  NInput,
   NDatePicker,
   useMessage,
 } from "naive-ui";
@@ -19,6 +20,7 @@ const { page, size, total } = usePagination();
 
 const logs = ref([]);
 const loading = ref(false);
+const searchKeyword = ref("");
 const searchTimeRange = ref(null);
 
 const columns = [
@@ -49,7 +51,11 @@ const columns = [
 
 async function fetchLogs() {
   loading.value = true;
-  const params = { page: page.value, size: size.value };
+  const params = {
+    page: page.value,
+    size: size.value,
+    keyword: searchKeyword.value,
+  };
   if (searchTimeRange.value) {
     params.start_time = new Date(searchTimeRange.value[0]).toISOString();
     params.end_time = new Date(searchTimeRange.value[1]).toISOString();
@@ -65,7 +71,7 @@ async function fetchLogs() {
   }
 }
 
-watch([page, searchTimeRange], fetchLogs);
+watch([page, searchKeyword, searchTimeRange], fetchLogs);
 onMounted(fetchLogs);
 </script>
 
@@ -83,6 +89,16 @@ onMounted(fetchLogs);
 
     <n-card class="mb-4">
       <div class="flex gap-4">
+        <n-input
+          v-model:value="searchKeyword"
+          placeholder="搜索日志内容"
+          clearable
+          style="width: 250px"
+        >
+          <template #prefix
+            ><n-icon><SearchOutline /></n-icon
+          ></template>
+        </n-input>
         <n-date-picker
           v-model:value="searchTimeRange"
           type="daterange"

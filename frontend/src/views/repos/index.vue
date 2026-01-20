@@ -63,6 +63,26 @@ const showModal = ref(false);
 const formRef = ref(null);
 const submitting = ref(false);
 const modalMode = ref("create");
+const testingId = ref(null);
+const deletingId = ref(null);
+
+const rules = {
+  name: {
+    required: true,
+    message: "请输入仓库名称",
+    trigger: ["blur", "input"],
+  },
+  url: {
+    required: true,
+    message: "请输入仓库地址",
+    trigger: ["blur", "input"],
+  },
+  type: {
+    required: true,
+    message: "请选择仓库类型",
+    trigger: ["blur", "change"],
+  },
+};
 
 const repoTypeOptions = [
   { label: "GitHub", value: "github" },
@@ -156,6 +176,8 @@ const columns = [
               size: "small",
               quaternary: true,
               onClick: () => handleEdit(row),
+              disabled:
+                testingId.value === row.id || deletingId.value === row.id,
             },
             {
               icon: () => h(NIcon, null, { default: () => h(CreateOutline) }),
@@ -166,6 +188,8 @@ const columns = [
             {
               size: "small",
               quaternary: true,
+              loading: testingId.value === row.id,
+              disabled: deletingId.value === row.id,
               onClick: () => handleTest(row.id),
             },
             {
@@ -174,12 +198,22 @@ const columns = [
           ),
           h(
             NPopconfirm,
-            { onPositiveClick: () => handleDelete(row.id) },
+            {
+              onPositiveClick: () => handleDelete(row.id),
+              disabled:
+                testingId.value === row.id || deletingId.value === row.id,
+            },
             {
               trigger: () =>
                 h(
                   NButton,
-                  { size: "small", quaternary: true, type: "error" },
+                  {
+                    size: "small",
+                    quaternary: true,
+                    type: "error",
+                    loading: deletingId.value === row.id,
+                    disabled: testingId.value === row.id,
+                  },
                   {
                     icon: () =>
                       h(NIcon, null, { default: () => h(TrashOutline) }),
@@ -320,44 +354,52 @@ async function handleEdit(row) {
 }
 
 async function handleSubmit() {
-  if (!form.name || !form.url) {
-    message.warning("请填写完整信息");
-    return;
-  }
-  submitting.value = true;
-  try {
-    if (modalMode.value === "create") {
-      await createRepo(form);
-      message.success("创建成功");
-    } else {
-      await updateRepo(form.id, form);
-      message.success("更新成功");
+  formRef.value?.validate(async (errors) => {
+    if (errors) {
+      message.error("请检查表单填写");
+      return;
     }
-    showModal.value = false;
-    fetchRepos();
-  } catch (e) {
-    message.error(modalMode.value === "create" ? "创建失败" : "更新失败");
-  } finally {
-    submitting.value = false;
-  }
+    submitting.value = true;
+    try {
+      if (modalMode.value === "create") {
+        await createRepo(form);
+        message.success("创建成功");
+      } else {
+        await updateRepo(form.id, form);
+        message.success("更新成功");
+      }
+      showModal.value = false;
+      fetchRepos();
+    } catch (e) {
+      message.error(modalMode.value === "create" ? "创建失败" : "更新失败");
+    } finally {
+      submitting.value = false;
+    }
+  });
 }
 
 async function handleTest(id) {
+  testingId.value = id;
   try {
     await testWebhook(id);
     message.success("测试成功");
   } catch (e) {
     message.error("测试失败");
+  } finally {
+    testingId.value = null;
   }
 }
 
 async function handleDelete(id) {
+  deletingId.value = id;
   try {
     await deleteRepo(id);
     message.success("删除成功");
     fetchRepos();
   } catch (e) {
     message.error("删除失败");
+  } finally {
+    deletingId.value = null;
   }
 }
 
@@ -407,7 +449,7 @@ onMounted(() => {
         :loading="loading"
         :pagination="false"
         :bordered="true"
-        :scroll-x="1500"
+        :scroll-x="1100"
       />
     </n-card>
 
@@ -417,17 +459,23 @@ onMounted(() => {
       :title="modalMode === 'create' ? '添加仓库' : '编辑仓库'"
       style="width: 600px"
     >
-      <n-form :model="form" label-placement="left" label-width="100">
-        <n-form-item label="仓库名称" required>
+      <n-form
+        ref="formRef"
+        :model="form"
+        :rules="rules"
+        label-placement="left"
+        label-width="100"
+      >
+        <n-form-item label="仓库名称" path="name">
           <n-input v-model:value="form.name" placeholder="请输入仓库名称" />
         </n-form-item>
-        <n-form-item label="仓库地址" required>
+        <n-form-item label="仓库地址" path="url">
           <n-input
             v-model:value="form.url"
             placeholder="https://github.com/xxx/xxx"
           />
         </n-form-item>
-        <n-form-item label="仓库类型" required>
+        <n-form-item label="仓库类型" path="type">
           <n-select v-model:value="form.type" :options="repoTypeOptions" />
         </n-form-item>
         <n-form-item label="访问令牌">

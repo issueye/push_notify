@@ -118,22 +118,6 @@ func ServerError(c *gin.Context, err error) {
 	})
 }
 
-// GetRequestID 获取请求ID
-func GetRequestID(c *gin.Context) string {
-	if id, exists := c.Get("request_id"); exists {
-		return id.(string)
-	}
-	return ""
-}
-
-// GetUserID 从上下文获取用户ID
-func GetUserID(c *gin.Context) uint {
-	if id, exists := c.Get("user_id"); exists {
-		return id.(uint)
-	}
-	return 0
-}
-
 // GetUserRole 从上下文获取用户角色
 func GetUserRole(c *gin.Context) string {
 	if role, exists := c.Get("role"); exists {

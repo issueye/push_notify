@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"backend/internal/models"
 
 	"gorm.io/gorm"
@@ -55,16 +57,19 @@ func (r *LogRepo) GetSystemLogs(page, size int, level, keyword, startTime, endTi
 }
 
 // GetOperationLogs 获取操作日志
-func (r *LogRepo) GetOperationLogs(page, size int, userID uint, action, startTime, endTime string) ([]models.Log, int64) {
+func (r *LogRepo) GetOperationLogs(page, size int, userID uint, module, keyword, startTime, endTime string) ([]models.Log, int64) {
 	var logs []models.Log
 	var total int64
 
-	query := r.db.Model(&models.Log{}).Where("type = ?", models.LogTypeOperation)
+	query := r.db.Model(&models.Log{}).Preload("User").Where("type = ?", models.LogTypeOperation)
 	if userID > 0 {
 		query = query.Where("user_id = ?", userID)
 	}
-	if action != "" {
-		query = query.Where("module = ?", action)
+	if module != "" {
+		query = query.Where("module = ?", module)
+	}
+	if keyword != "" {
+		query = query.Where("(message LIKE ? OR detail LIKE ?)", "%"+keyword+"%", "%"+keyword+"%")
 	}
 	if startTime != "" {
 		query = query.Where("created_at >= ?", startTime)
@@ -80,11 +85,14 @@ func (r *LogRepo) GetOperationLogs(page, size int, userID uint, action, startTim
 }
 
 // GetAICallLogs 获取AI调用日志
-func (r *LogRepo) GetAICallLogs(page, size int, startTime, endTime string) ([]models.Log, int64) {
+func (r *LogRepo) GetAICallLogs(page, size int, keyword, startTime, endTime string) ([]models.Log, int64) {
 	var logs []models.Log
 	var total int64
 
 	query := r.db.Model(&models.Log{}).Where("type = ?", models.LogTypeAICall)
+	if keyword != "" {
+		query = query.Where("(message LIKE ? OR detail LIKE ?)", "%"+keyword+"%", "%"+keyword+"%")
+	}
 	if startTime != "" {
 		query = query.Where("created_at >= ?", startTime)
 	}
@@ -103,32 +111,54 @@ func (r *LogRepo) GetStats(startDate, endDate string) (map[string]interface{}, e
 	stats := make(map[string]interface{})
 
 	// 按级别统计
-	var debugCount, infoCount, warnCount, errorCount int64
-	r.db.Model(&models.Log{}).
-		Where("created_at >= ? AND created_at <= ?", startDate, endDate).
-		Group("level").
-		Pluck("count", &debugCount)
-	r.db.Model(&models.Log{}).
-		Where("created_at >= ? AND created_at <= ? AND level = ?", startDate, endDate, "info").
-		Count(&infoCount)
-	r.db.Model(&models.Log{}).
-		Where("created_at >= ? AND created_at <= ? AND level = ?", startDate, endDate, "warn").
-		Count(&warnCount)
-	r.db.Model(&models.Log{}).
-		Where("created_at >= ? AND created_at <= ? AND level = ?", startDate, endDate, "error").
-		Count(&errorCount)
-
-	stats["level_distribution"] = map[string]interface{}{
-		"debug": debugCount,
-		"info":  infoCount,
-		"warn":  warnCount,
-		"error": errorCount,
+	var counts []struct {
+		Level string
+		Count int64
 	}
+	
+	query := r.db.Model(&models.Log{})
+	if startDate != "" {
+		query = query.Where("created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		query = query.Where("created_at <= ?", endDate)
+	}
+	
+	query.Select("level, count(*) as count").Group("level").Scan(&counts)
+
+	levelDist := map[string]int64{
+		"debug": 0,
+		"info":  0,
+		"warn":  0,
+		"error": 0,
+	}
+	for _, c := range counts {
+		levelDist[c.Level] = c.Count
+	}
+
+	stats["level_distribution"] = levelDist
+
+	// 按类型统计
+	var typeCounts []struct {
+		Type  string
+		Count int64
+	}
+	r.db.Model(&models.Log{}).Select("type, count(*) as count").Group("type").Scan(&typeCounts)
+	typeDist := map[string]int64{
+		"system":    0,
+		"operation": 0,
+		"ai_call":   0,
+	}
+	for _, c := range typeCounts {
+		typeDist[c.Type] = c.Count
+	}
+	stats["type_distribution"] = typeDist
 
 	return stats, nil
 }
 
 // Delete 清理旧日志
 func (r *LogRepo) Delete(beforeDays int) error {
-	return r.db.Where("created_at < DATE_SUB(NOW(), INTERVAL ? DAY)", beforeDays).Delete(&models.Log{}).Error
+	beforeTime := time.Now().AddDate(0, 0, -beforeDays)
+	return r.db.Where("created_at < ?", beforeTime).Delete(&models.Log{}).Error
 }

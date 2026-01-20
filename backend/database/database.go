@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"strings"
 
 	"backend/internal/models"
 
@@ -48,7 +49,7 @@ func Init(cfg DatabaseConfig) (*gorm.DB, error) {
 }
 
 func Migrate(db *gorm.DB) error {
-	return db.AutoMigrate(
+	err := db.AutoMigrate(
 		&models.User{},
 		&models.Repo{},
 		&models.RepoTemplate{},
@@ -57,9 +58,27 @@ func Migrate(db *gorm.DB) error {
 		&models.Push{},
 		&models.Template{},
 		&models.Prompt{},
+		&models.PromptHistory{},
 		&models.AIModel{},
 		&models.Log{},
 	)
+	if err != nil {
+		return err
+	}
+
+	// 数据迁移：填充 WebhookID
+	var repos []models.Repo
+	db.Where("webhook_id = '' OR webhook_id IS NULL").Find(&repos)
+	for _, repo := range repos {
+		// 从 /webhook/{id} 中提取 id
+		parts := strings.Split(repo.WebhookURL, "/")
+		if len(parts) >= 3 {
+			webhookID := parts[len(parts)-1]
+			db.Model(&models.Repo{}).Where("id = ?", repo.ID).Update("webhook_id", webhookID)
+		}
+	}
+
+	return nil
 }
 
 func Close(db *gorm.DB) error {

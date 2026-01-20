@@ -9,10 +9,14 @@ import (
 
 type PromptHandler struct {
 	promptService *services.PromptService
+	logService    *services.LogService
 }
 
-func NewPromptHandler(promptService *services.PromptService) *PromptHandler {
-	return &PromptHandler{promptService: promptService}
+func NewPromptHandler(promptService *services.PromptService, logService *services.LogService) *PromptHandler {
+	return &PromptHandler{
+		promptService: promptService,
+		logService:    logService,
+	}
 }
 
 // List 获取提示词列表
@@ -46,6 +50,7 @@ func (h *PromptHandler) Create(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "prompt", "创建提示词", "prompt", prompt.ID, data)
 	utils.SuccessWithMsg(c, "创建成功", prompt)
 }
 
@@ -76,6 +81,7 @@ func (h *PromptHandler) Update(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "prompt", "更新提示词", "prompt", id, data)
 	utils.SuccessWithMsg(c, "更新成功", nil)
 }
 
@@ -88,11 +94,13 @@ func (h *PromptHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "prompt", "删除提示词", "prompt", id, nil)
 	utils.SuccessWithMsg(c, "删除成功", nil)
 }
 
 // Test 测试提示词
 func (h *PromptHandler) Test(c *gin.Context) {
+	id := utils.GetID(c)
 	var req struct {
 		TestData map[string]interface{} `json:"test_data" binding:"required"`
 	}
@@ -102,14 +110,20 @@ func (h *PromptHandler) Test(c *gin.Context) {
 		return
 	}
 
-	// TODO: 实现测试逻辑
+	result, err := h.promptService.Test(id, req.TestData)
+	if err != nil {
+		utils.Fail(c, 400, err.Error())
+		return
+	}
+
 	utils.Success(c, map[string]interface{}{
-		"result": "测试结果",
+		"result": result,
 	})
 }
 
 // Rollback 回滚版本
 func (h *PromptHandler) Rollback(c *gin.Context) {
+	id := utils.GetID(c)
 	var req struct {
 		Version int `json:"version" binding:"required"`
 	}
@@ -119,6 +133,23 @@ func (h *PromptHandler) Rollback(c *gin.Context) {
 		return
 	}
 
-	// TODO: 实现版本回滚逻辑
+	err := h.promptService.Rollback(id, req.Version)
+	if err != nil {
+		utils.Fail(c, 400, err.Error())
+		return
+	}
+
 	utils.SuccessWithMsg(c, "回滚成功", nil)
+}
+
+// History 获取历史列表
+func (h *PromptHandler) History(c *gin.Context) {
+	id := utils.GetID(c)
+	history, err := h.promptService.GetHistoryList(id)
+	if err != nil {
+		utils.Fail(c, 400, err.Error())
+		return
+	}
+
+	utils.Success(c, history)
 }

@@ -9,10 +9,14 @@ import (
 
 type TargetHandler struct {
 	targetService *services.TargetService
+	logService    *services.LogService
 }
 
-func NewTargetHandler(targetService *services.TargetService) *TargetHandler {
-	return &TargetHandler{targetService: targetService}
+func NewTargetHandler(targetService *services.TargetService, logService *services.LogService) *TargetHandler {
+	return &TargetHandler{
+		targetService: targetService,
+		logService:    logService,
+	}
 }
 
 // List 获取推送目标列表
@@ -46,6 +50,7 @@ func (h *TargetHandler) Create(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "target", "创建推送目标", "target", target.ID, data)
 	utils.SuccessWithMsg(c, "创建成功", target)
 }
 
@@ -76,6 +81,7 @@ func (h *TargetHandler) Update(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "target", "更新推送目标", "target", id, data)
 	utils.SuccessWithMsg(c, "更新成功", nil)
 }
 
@@ -88,6 +94,7 @@ func (h *TargetHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "target", "删除推送目标", "target", id, nil)
 	utils.SuccessWithMsg(c, "删除成功", nil)
 }
 

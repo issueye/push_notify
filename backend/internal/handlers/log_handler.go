@@ -38,11 +38,15 @@ func (h *LogHandler) GetOperationLogs(c *gin.Context) {
 	page := utils.GetPage(c)
 	size := utils.GetSize(c)
 	userID := utils.GetIDParam(c, "userId")
-	action := c.Query("action")
+	module := c.Query("module")
+	if module == "" {
+		module = c.Query("action") // 兼容前端 action 参数
+	}
+	keyword := c.Query("keyword")
 	startTime := c.Query("start_time")
 	endTime := c.Query("end_time")
 
-	logs, total, err := h.logService.GetOperationLogs(page, size, userID, action, startTime, endTime)
+	logs, total, err := h.logService.GetOperationLogs(page, size, userID, module, keyword, startTime, endTime)
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return
@@ -55,10 +59,11 @@ func (h *LogHandler) GetOperationLogs(c *gin.Context) {
 func (h *LogHandler) GetAICallLogs(c *gin.Context) {
 	page := utils.GetPage(c)
 	size := utils.GetSize(c)
+	keyword := c.Query("keyword")
 	startTime := c.Query("start_time")
 	endTime := c.Query("end_time")
 
-	logs, total, err := h.logService.GetAICallLogs(page, size, startTime, endTime)
+	logs, total, err := h.logService.GetAICallLogs(page, size, keyword, startTime, endTime)
 	if err != nil {
 		utils.Fail(c, 400, err.Error())
 		return

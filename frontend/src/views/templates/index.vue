@@ -344,6 +344,7 @@ onMounted(fetchTemplates);
         :loading="loading"
         :pagination="false"
         :bordered="true"
+        :scroll-x="1100"
       />
     </n-card>
 

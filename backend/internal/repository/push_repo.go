@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"backend/internal/models"
 
 	"gorm.io/gorm"
@@ -55,7 +57,8 @@ func (r *PushRepo) GetList(page, size int, repoID, targetID uint, status, keywor
 	}
 
 	query.Count(&total)
-	query.Offset((page - 1) * size).Limit(size).Order("created_at DESC").Find(&pushes)
+	query.Preload("Repo").Preload("Target").Preload("Template").
+		Offset((page - 1) * size).Limit(size).Order("created_at DESC").Find(&pushes)
 
 	return pushes, total
 }
@@ -86,7 +89,7 @@ func (r *PushRepo) UpdateStatus(id uint, status, errorMsg string) error {
 		updates["error_msg"] = errorMsg
 	}
 	if status == models.PushStatusSuccess {
-		updates["pushed_at"] = gorm.Expr("datetime('now')")
+		updates["pushed_at"] = time.Now()
 	}
 
 	return r.db.Model(&models.Push{}).Where("id = ?", id).Updates(updates).Error
@@ -100,60 +103,64 @@ func (r *PushRepo) IncrementRetryCount(id uint) error {
 // GetStats 获取统计数据
 func (r *PushRepo) GetStats(startDate, endDate string) (map[string]interface{}, error) {
 	stats := make(map[string]interface{})
+	now := time.Now()
+
+	// 统计函数辅助
+	getCount := func(start time.Time) (total, success, failed int64) {
+		r.db.Model(&models.Push{}).Where("created_at >= ?", start).Count(&total)
+		r.db.Model(&models.Push{}).Where("created_at >= ? AND status = ?", start, models.PushStatusSuccess).Count(&success)
+		r.db.Model(&models.Push{}).Where("created_at >= ? AND status = ?", start, models.PushStatusFailed).Count(&failed)
+		return
+	}
 
 	// 今日统计
-	var todayTotal, todaySuccess, todayFailed int64
-	r.db.Model(&models.Push{}).
-		Where("date(created_at) = date('now')").
-		Count(&todayTotal)
-	r.db.Model(&models.Push{}).
-		Where("date(created_at) = date('now') AND status = ?", models.PushStatusSuccess).
-		Count(&todaySuccess)
-	r.db.Model(&models.Push{}).
-		Where("date(created_at) = date('now') AND status = ?", models.PushStatusFailed).
-		Count(&todayFailed)
-
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	tTotal, tSuccess, tFailed := getCount(todayStart)
 	stats["today"] = map[string]interface{}{
-		"total":   todayTotal,
-		"success": todaySuccess,
-		"failed":  todayFailed,
+		"total":   tTotal,
+		"success": tSuccess,
+		"failed":  tFailed,
 	}
 
 	// 本周统计
-	var weekTotal, weekSuccess, weekFailed int64
-	r.db.Model(&models.Push{}).
-		Where("strftime('%Y-%W', created_at) = strftime('%Y-%W', 'now')").
-		Count(&weekTotal)
-	r.db.Model(&models.Push{}).
-		Where("strftime('%Y-%W', created_at) = strftime('%Y-%W', 'now') AND status = ?", models.PushStatusSuccess).
-		Count(&weekSuccess)
-	r.db.Model(&models.Push{}).
-		Where("strftime('%Y-%W', created_at) = strftime('%Y-%W', 'now') AND status = ?", models.PushStatusFailed).
-		Count(&weekFailed)
-
+	offset := int(now.Weekday()) - 1
+	if offset < 0 {
+		offset = 6
+	}
+	weekStart := todayStart.AddDate(0, 0, -offset)
+	wTotal, wSuccess, wFailed := getCount(weekStart)
 	stats["this_week"] = map[string]interface{}{
-		"total":   weekTotal,
-		"success": weekSuccess,
-		"failed":  weekFailed,
+		"total":   wTotal,
+		"success": wSuccess,
+		"failed":  wFailed,
 	}
 
 	// 本月统计
-	var monthTotal, monthSuccess, monthFailed int64
-	r.db.Model(&models.Push{}).
-		Where("strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')").
-		Count(&monthTotal)
-	r.db.Model(&models.Push{}).
-		Where("strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') AND status = ?", models.PushStatusSuccess).
-		Count(&monthSuccess)
-	r.db.Model(&models.Push{}).
-		Where("strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now') AND status = ?", models.PushStatusFailed).
-		Count(&monthFailed)
-
+	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+	mTotal, mSuccess, mFailed := getCount(monthStart)
 	stats["this_month"] = map[string]interface{}{
-		"total":   monthTotal,
-		"success": monthSuccess,
-		"failed":  monthFailed,
+		"total":   mTotal,
+		"success": mSuccess,
+		"failed":  mFailed,
 	}
+
+	// 趋势统计 (近 7 天)
+	var trend []map[string]interface{}
+	for i := 6; i >= 0; i-- {
+		day := todayStart.AddDate(0, 0, -i)
+		nextDay := day.AddDate(0, 0, 1)
+		var dTotal, dSuccess, dFailed int64
+		r.db.Model(&models.Push{}).Where("created_at >= ? AND created_at < ?", day, nextDay).Count(&dTotal)
+		r.db.Model(&models.Push{}).Where("created_at >= ? AND created_at < ? AND status = ?", day, nextDay, models.PushStatusSuccess).Count(&dSuccess)
+		r.db.Model(&models.Push{}).Where("created_at >= ? AND created_at < ? AND status = ?", day, nextDay, models.PushStatusFailed).Count(&dFailed)
+		trend = append(trend, map[string]interface{}{
+			"date":    day.Format("2006-01-02"),
+			"total":   dTotal,
+			"success": dSuccess,
+			"failed":  dFailed,
+		})
+	}
+	stats["trend"] = trend
 
 	return stats, nil
 }

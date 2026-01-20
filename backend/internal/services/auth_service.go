@@ -21,12 +21,14 @@ var (
 type AuthService struct {
 	userRepo *repository.UserRepo
 	jwtUtils *utils.JWT
+	logServ  *LogService
 }
 
 func NewAuthService(db *gorm.DB, jwtUtils *utils.JWT) *AuthService {
 	return &AuthService{
 		userRepo: repository.NewUserRepo(db),
 		jwtUtils: jwtUtils,
+		logServ:  NewLogService(db),
 	}
 }
 
@@ -53,6 +55,7 @@ func (s *AuthService) Login(username, password string) (map[string]interface{}, 
 	// 生成Token
 	accessToken, refreshToken, err := s.jwtUtils.GenerateToken(user.ID, user.Username, user.Role)
 	if err != nil {
+		s.logServ.LogOperation(user.ID, "auth", "登录失败", "auth", 0, map[string]string{"username": username, "error": err.Error()})
 		return nil, err
 	}
 
@@ -72,6 +75,7 @@ func (s *AuthService) Login(username, password string) (map[string]interface{}, 
 		},
 	}
 
+	s.logServ.LogOperation(user.ID, "auth", "登录成功", "auth", user.ID, map[string]string{"username": username})
 	logger.Info("User logged in", map[string]interface{}{
 		"user_id":  user.ID,
 		"username": user.Username,
@@ -112,6 +116,7 @@ func (s *AuthService) Register(username, email, password string) (*models.User, 
 		return nil, err
 	}
 
+	s.logServ.LogOperation(user.ID, "auth", "用户注册", "user", user.ID, map[string]string{"username": username, "email": email})
 	logger.Info("User registered", map[string]interface{}{
 		"user_id":  user.ID,
 		"username": user.Username,

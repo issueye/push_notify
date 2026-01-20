@@ -10,12 +10,21 @@ import {
   NInput,
   NSelect,
   NDatePicker,
+  NModal,
+  NScrollbar,
   useMessage,
 } from "naive-ui";
-import { RefreshOutline, SearchOutline } from "@vicons/ionicons5";
+import {
+  RefreshOutline,
+  SearchOutline,
+  CodeWorkingOutline,
+  EyeOutline,
+} from "@vicons/ionicons5";
 import { getPushList, retryPush, batchRetry } from "@/services/push";
 import { usePagination, useConfirm } from "@/composables/useMessage";
+import MarkdownIt from "markdown-it";
 
+const md = new MarkdownIt();
 const message = useMessage();
 const { confirm } = useConfirm();
 const { page, size, total } = usePagination();
@@ -26,6 +35,12 @@ const searchKeyword = ref("");
 const searchStatus = ref(null);
 const searchTimeRange = ref(null);
 const selectedRowKeys = ref([]);
+const retryingId = ref(null);
+const batchRetrying = ref(false);
+
+const showCodeviewModal = ref(false);
+const currentCodeview = ref("");
+const currentCommitId = ref("");
 
 const statusOptions = [
   { label: "全部状态", value: null },
@@ -37,13 +52,34 @@ const statusOptions = [
 const columns = [
   { type: "selection", width: 50 },
   { title: "ID", key: "id", width: 60 },
-  { title: "仓库", key: "repo_name", width: 120 },
-  { title: "目标", key: "target_name", width: 100 },
-  { title: "提交信息", key: "commit_msg", ellipsis: { tooltip: true } },
   {
-    title: "状态",
+    title: "仓库",
+    key: "repo_name",
+    width: 200,
+    ellipsis: { tooltip: true },
+    render(row) {
+      return row.repo?.name || "-";
+    },
+  },
+  {
+    title: "目标",
+    key: "target_name",
+    width: 100,
+    ellipsis: { tooltip: true },
+    render(row) {
+      return row.target?.name || "-";
+    },
+  },
+  {
+    title: "提交信息",
+    key: "commit_msg",
+    minWidth: 200,
+    ellipsis: { tooltip: true },
+  },
+  {
+    title: "推送状态",
     key: "status",
-    width: 90,
+    width: 120,
     render(row) {
       const type =
         { success: "success", failed: "error", pending: "warning" }[
@@ -56,11 +92,46 @@ const columns = [
     },
   },
   {
-    title: "推送时间",
-    key: "pushed_at",
-    width: 170,
+    title: "代码审查",
+    key: "codeview_status",
+    width: 150,
     render(row) {
-      return formatDate(row.pushed_at);
+      const type =
+        {
+          success: "success",
+          failed: "error",
+          pending: "warning",
+          skipped: "default",
+        }[row.codeview_status] || "default";
+      const text =
+        {
+          success: "已审查",
+          failed: "审查失败",
+          pending: "进行中",
+          skipped: "已跳过",
+        }[row.codeview_status] || row.codeview_status;
+
+      return h(
+        NSpace,
+        { size: "small", align: "center" },
+        {
+          default: () => [
+            h(NTag, { type, size: "small" }, () => text),
+            row.codeview_result
+              ? h(
+                  NButton,
+                  {
+                    size: "tiny",
+                    quaternary: true,
+                    circle: true,
+                    onClick: () => handleViewCodeview(row),
+                  },
+                  { icon: () => h(EyeOutline) },
+                )
+              : null,
+          ],
+        },
+      );
     },
   },
   {
@@ -74,11 +145,18 @@ const columns = [
   {
     title: "操作",
     key: "actions",
-    width: 100,
+    width: 120,
+    fixed: "right",
     render(row) {
       return h(
         NButton,
-        { size: "small", quaternary: true, onClick: () => handleRetry(row.id) },
+        {
+          size: "small",
+          quaternary: true,
+          loading: retryingId.value === row.id,
+          disabled: batchRetrying.value,
+          onClick: () => handleRetry(row.id),
+        },
         () => "重试",
       );
     },
@@ -108,13 +186,22 @@ async function fetchPushes() {
   }
 }
 
+function handleViewCodeview(row) {
+  currentCodeview.value = row.codeview_result || "";
+  currentCommitId.value = row.commit_id || "";
+  showCodeviewModal.value = true;
+}
+
 async function handleRetry(id) {
+  retryingId.value = id;
   try {
     await retryPush(id);
     message.success("重试已提交");
     fetchPushes();
   } catch (e) {
     message.error("重试失败");
+  } finally {
+    retryingId.value = null;
   }
 }
 
@@ -124,11 +211,16 @@ function handleBatchRetry() {
     return;
   }
   confirm(`确定要重试选中的 ${selectedRowKeys.value.length} 条记录吗？`, () => {
-    batchRetry(selectedRowKeys.value).then(() => {
-      message.success("批量重试已提交");
-      selectedRowKeys.value = [];
-      fetchPushes();
-    });
+    batchRetrying.value = true;
+    batchRetry(selectedRowKeys.value)
+      .then(() => {
+        message.success("批量重试已提交");
+        selectedRowKeys.value = [];
+        fetchPushes();
+      })
+      .finally(() => {
+        batchRetrying.value = false;
+      });
   });
 }
 
@@ -143,6 +235,7 @@ onMounted(fetchPushes);
       <n-button
         type="primary"
         :disabled="selectedRowKeys.length === 0"
+        :loading="batchRetrying"
         @click="handleBatchRetry"
       >
         批量重试 ({{ selectedRowKeys.length }})
@@ -184,7 +277,78 @@ onMounted(fetchPushes);
         v-model:checked-row-keys="selectedRowKeys"
         :pagination="false"
         :bordered="true"
+        :scroll-x="1100"
       />
     </n-card>
+
+    <n-modal
+      v-model:show="showCodeviewModal"
+      preset="card"
+      :title="'代码审查详情 - ' + currentCommitId.substring(0, 7)"
+      style="width: 800px"
+    >
+      <n-scrollbar style="max-height: 600px">
+        <div
+          class="markdown-body p-4"
+          v-html="md.render(currentCodeview)"
+        ></div>
+      </n-scrollbar>
+    </n-modal>
   </div>
 </template>
+
+<style scoped>
+.markdown-body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 16px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.markdown-body :deep(h1),
+.markdown-body :deep(h2),
+.markdown-body :deep(h3) {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-body :deep(h3) {
+  font-size: 1.25em;
+}
+
+.markdown-body :deep(p) {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+
+.markdown-body :deep(code) {
+  padding: 0.2em 0.4em;
+  margin: 0;
+  font-size: 85%;
+  background-color: rgba(175, 184, 193, 0.2);
+  border-radius: 6px;
+}
+
+.markdown-body :deep(pre) {
+  padding: 16px;
+  overflow: auto;
+  font-size: 85%;
+  line-height: 1.45;
+  background-color: #f6f8fa;
+  border-radius: 6px;
+}
+
+.markdown-body :deep(pre code) {
+  padding: 0;
+  margin: 0;
+  font-size: 100%;
+  word-break: normal;
+  white-space: pre;
+  background: transparent;
+  border: 0;
+}
+</style>

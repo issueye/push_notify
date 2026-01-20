@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 
 	"backend/internal/models"
 	"backend/internal/repository"
@@ -15,11 +16,13 @@ import (
 
 type GenerateTemplateService struct {
 	modelRepo *repository.AIModelRepo
+	logServ   *LogService
 }
 
 func NewGenerateTemplateService(db *gorm.DB) *GenerateTemplateService {
 	return &GenerateTemplateService{
 		modelRepo: repository.NewAIModelRepo(db),
+		logServ:    NewLogService(db),
 	}
 }
 
@@ -72,8 +75,12 @@ func (s *GenerateTemplateService) Generate(input GenerateTemplateInput) (string,
 		},
 	}
 
+	startTime := time.Now()
 	result, err := aiClient.Chat(messages, "你是一个专业的消息模板生成助手。")
+	duration := int(time.Since(startTime).Milliseconds())
+
 	if err != nil {
+		s.logServ.LogAICall(aiModel.ID, prompt, err.Error(), duration, false)
 		logger.Error("Failed to generate template", map[string]interface{}{
 			"error":    err.Error(),
 			"model_id": aiModel.ID,
@@ -84,6 +91,7 @@ func (s *GenerateTemplateService) Generate(input GenerateTemplateInput) (string,
 
 	// 更新调用次数
 	s.modelRepo.IncrementCallCount(aiModel.ID)
+	s.logServ.LogAICall(aiModel.ID, prompt, result, duration, true)
 
 	return strings.TrimSpace(result), nil
 }

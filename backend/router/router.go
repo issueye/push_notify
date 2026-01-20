@@ -13,16 +13,6 @@ import (
 )
 
 func Setup(cfg *config.Config) *gin.Engine {
-	r := gin.New()
-
-	// 中间件
-	r.Use(middleware.RecoveryMiddleware())
-	r.Use(middleware.CORSMiddleware())
-	r.Use(middleware.LoggerMiddleware())
-
-	// 初始化JWT
-	jwtUtils := utils.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTokenExpire, cfg.JWT.RefreshTokenExpire)
-
 	// 初始化数据库连接
 	db, err := database.Init(database.DatabaseConfig{
 		Driver:  cfg.Database.Driver,
@@ -33,7 +23,20 @@ func Setup(cfg *config.Config) *gin.Engine {
 		panic("Failed to init database: " + err.Error())
 	}
 
-	// 初始化服务
+	// 初始化基础服务
+	logService := services.NewLogService(db)
+
+	r := gin.New()
+
+	// 中间件
+	r.Use(middleware.RecoveryMiddleware(logService))
+	r.Use(middleware.CORSMiddleware())
+	r.Use(middleware.LoggerMiddleware())
+
+	// 初始化JWT
+	jwtUtils := utils.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTokenExpire, cfg.JWT.RefreshTokenExpire)
+
+	// 初始化其他服务
 	authService := services.NewAuthService(db, jwtUtils)
 	repoService := services.NewRepoService(db)
 	targetService := services.NewTargetService(db)
@@ -43,15 +46,14 @@ func Setup(cfg *config.Config) *gin.Engine {
 	modelService := services.NewAIModelService(db)
 	pushService := services.NewPushService(db)
 	webhookService := services.NewWebhookService(db)
-	logService := services.NewLogService(db)
 
 	// 初始化处理器
 	authHandler := handlers.NewAuthHandler(authService)
-	repoHandler := handlers.NewRepoHandler(repoService)
-	targetHandler := handlers.NewTargetHandler(targetService)
-	templateHandler := handlers.NewTemplateHandler(templateService, generateTemplateService)
-	promptHandler := handlers.NewPromptHandler(promptService)
-	modelHandler := handlers.NewModelHandler(modelService)
+	repoHandler := handlers.NewRepoHandler(repoService, logService)
+	targetHandler := handlers.NewTargetHandler(targetService, logService)
+	templateHandler := handlers.NewTemplateHandler(templateService, generateTemplateService, logService)
+	promptHandler := handlers.NewPromptHandler(promptService, logService)
+	modelHandler := handlers.NewModelHandler(modelService, logService)
 	pushHandler := handlers.NewPushHandler(pushService)
 	webhookHandler := handlers.NewWebhookHandler(webhookService)
 	logHandler := handlers.NewLogHandler(logService)
@@ -140,6 +142,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 			prompts.DELETE("/:id", promptHandler.Delete)
 			prompts.POST("/:id/test", promptHandler.Test)
 			prompts.POST("/:id/rollback", promptHandler.Rollback)
+			prompts.GET("/:id/history", promptHandler.History)
 		}
 
 		// AI模型

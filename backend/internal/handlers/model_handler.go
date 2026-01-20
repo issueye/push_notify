@@ -9,10 +9,14 @@ import (
 
 type ModelHandler struct {
 	modelService *services.AIModelService
+	logService   *services.LogService
 }
 
-func NewModelHandler(modelService *services.AIModelService) *ModelHandler {
-	return &ModelHandler{modelService: modelService}
+func NewModelHandler(modelService *services.AIModelService, logService *services.LogService) *ModelHandler {
+	return &ModelHandler{
+		modelService: modelService,
+		logService:   logService,
+	}
 }
 
 // List 获取模型列表
@@ -45,6 +49,7 @@ func (h *ModelHandler) Create(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "model", "创建模型", "model", model.ID, data)
 	utils.SuccessWithMsg(c, "创建成功", model)
 }
 
@@ -75,6 +80,7 @@ func (h *ModelHandler) Update(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "model", "更新模型", "model", id, data)
 	utils.SuccessWithMsg(c, "更新成功", nil)
 }
 
@@ -87,6 +93,7 @@ func (h *ModelHandler) Delete(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "model", "删除模型", "model", id, nil)
 	utils.SuccessWithMsg(c, "删除成功", nil)
 }
 
@@ -99,6 +106,7 @@ func (h *ModelHandler) SetDefault(c *gin.Context) {
 		return
 	}
 
+	h.logService.LogOperation(utils.GetUserID(c), "model", "设置默认模型", "model", id, nil)
 	utils.SuccessWithMsg(c, "设置成功", nil)
 }
 
@@ -106,9 +114,17 @@ func (h *ModelHandler) SetDefault(c *gin.Context) {
 func (h *ModelHandler) GetLogs(c *gin.Context) {
 	page := utils.GetPage(c)
 	size := utils.GetSize(c)
+	keyword := c.Query("keyword")
+	startTime := c.Query("start_time")
+	endTime := c.Query("end_time")
 
-	// TODO: 从日志服务获取
-	utils.SuccessWithPage(c, []interface{}{}, 0, page, size)
+	logs, total, err := h.logService.GetAICallLogs(page, size, keyword, startTime, endTime)
+	if err != nil {
+		utils.Fail(c, 400, err.Error())
+		return
+	}
+
+	utils.SuccessWithPage(c, logs, int(total), page, size)
 }
 
 // Verify 验证模型配置

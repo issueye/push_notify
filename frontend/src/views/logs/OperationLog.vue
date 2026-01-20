@@ -23,6 +23,7 @@ const logs = ref([]);
 const loading = ref(false);
 const searchUserId = ref(null);
 const searchAction = ref(null);
+const searchKeyword = ref("");
 const searchTimeRange = ref(null);
 
 const columns = [
@@ -48,6 +49,7 @@ async function fetchLogs() {
     size: size.value,
     user_id: searchUserId.value,
     action: searchAction.value,
+    keyword: searchKeyword.value,
   };
   if (searchTimeRange.value) {
     params.start_time = new Date(searchTimeRange.value[0]).toISOString();
@@ -64,7 +66,7 @@ async function fetchLogs() {
   }
 }
 
-watch([page, searchUserId, searchAction, searchTimeRange], fetchLogs);
+watch([page, searchUserId, searchAction, searchKeyword, searchTimeRange], fetchLogs);
 onMounted(fetchLogs);
 </script>
 
@@ -82,6 +84,16 @@ onMounted(fetchLogs);
 
     <n-card class="mb-4">
       <div class="flex gap-4 flex-wrap">
+        <n-input
+          v-model:value="searchKeyword"
+          placeholder="搜索日志内容"
+          clearable
+          style="width: 250px"
+        >
+          <template #prefix
+            ><n-icon><SearchOutline /></n-icon
+          ></template>
+        </n-input>
         <n-input-number
           v-model:value="searchUserId"
           placeholder="用户ID"

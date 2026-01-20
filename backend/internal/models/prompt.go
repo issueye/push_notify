@@ -21,6 +21,14 @@ type Prompt struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
+type PromptHistory struct {
+	ID        uint      `gorm:"primarykey" json:"id"`
+	PromptID  uint      `gorm:"index" json:"prompt_id"`
+	Content   string    `gorm:"type:text;not null" json:"content"`
+	Version   int       `json:"version"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 // 提示词类型
 const (
 	PromptTypeCodeView = "codeview"

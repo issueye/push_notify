@@ -68,6 +68,8 @@ func (s *LogService) LogAICall(modelID uint, input, output string, duration int,
 		"model_id": modelID,
 		"duration": duration,
 		"success":  success,
+		"input":    input,
+		"output":   output,
 	}
 	detailBytes, _ := json.Marshal(detail)
 	detailStr := string(detailBytes)
@@ -90,16 +92,16 @@ func (s *LogService) GetSystemLogs(page, size int, level, keyword, startTime, en
 }
 
 // GetOperationLogs 获取操作日志
-func (s *LogService) GetOperationLogs(page, size int, userID uint, action, startTime, endTime string) ([]models.Log, int64, error) {
+func (s *LogService) GetOperationLogs(page, size int, userID uint, module, keyword, startTime, endTime string) ([]models.Log, int64, error) {
 	db := repository.NewLogRepo(s.db)
-	logs, total := db.GetOperationLogs(page, size, userID, action, startTime, endTime)
+	logs, total := db.GetOperationLogs(page, size, userID, module, keyword, startTime, endTime)
 	return logs, total, nil
 }
 
 // GetAICallLogs 获取AI调用日志
-func (s *LogService) GetAICallLogs(page, size int, startTime, endTime string) ([]models.Log, int64, error) {
+func (s *LogService) GetAICallLogs(page, size int, keyword, startTime, endTime string) ([]models.Log, int64, error) {
 	db := repository.NewLogRepo(s.db)
-	logs, total := db.GetAICallLogs(page, size, startTime, endTime)
+	logs, total := db.GetAICallLogs(page, size, keyword, startTime, endTime)
 	return logs, total, nil
 }
 

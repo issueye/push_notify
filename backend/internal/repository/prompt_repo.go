@@ -14,6 +14,11 @@ func NewPromptRepo(db *gorm.DB) *PromptRepo {
 	return &PromptRepo{db: db}
 }
 
+// WithTx 返回一个使用指定事务 DB 的 PromptRepo
+func (r *PromptRepo) WithTx(tx *gorm.DB) *PromptRepo {
+	return &PromptRepo{db: tx}
+}
+
 // Create 创建提示词
 func (r *PromptRepo) Create(prompt *models.Prompt) error {
 	return r.db.Create(prompt).Error
@@ -71,4 +76,26 @@ func (r *PromptRepo) GetByTypeAndScene(promptType, scene string) ([]models.Promp
 	var prompts []models.Prompt
 	err := r.db.Where("type = ? AND scene = ?", promptType, scene).Find(&prompts).Error
 	return prompts, err
+}
+
+// CreateHistory 创建历史记录
+func (r *PromptRepo) CreateHistory(history *models.PromptHistory) error {
+	return r.db.Create(history).Error
+}
+
+// GetHistory 获取历史记录
+func (r *PromptRepo) GetHistory(promptID uint, version int) (*models.PromptHistory, error) {
+	var history models.PromptHistory
+	err := r.db.Where("prompt_id = ? AND version = ?", promptID, version).First(&history).Error
+	if err != nil {
+		return nil, err
+	}
+	return &history, nil
+}
+
+// GetHistoryList 获取历史列表
+func (r *PromptRepo) GetHistoryList(promptID uint) ([]models.PromptHistory, error) {
+	var history []models.PromptHistory
+	err := r.db.Where("prompt_id = ?", promptID).Order("version DESC").Find(&history).Error
+	return history, err
 }

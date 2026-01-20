@@ -12,6 +12,7 @@ type Repo struct {
 	URL           string         `gorm:"size:500;not null" json:"url"`
 	Type          string         `gorm:"size:50;not null" json:"type"` // github, gitlab, gitee
 	AccessToken   string         `gorm:"size:255" json:"-"`
+	WebhookID     string         `gorm:"uniqueIndex;size:100" json:"webhook_id"`
 	WebhookURL    string         `gorm:"size:500;not null" json:"webhook_url"`
 	WebhookSecret string         `gorm:"size:100" json:"-"`
 	ModelID       *uint          `json:"model_id"`

@@ -61,8 +61,8 @@ const form = reactive({ ...defaultForm });
 
 const columns = [
   { title: "ID", key: "id", width: 60 },
-  { title: "名称", key: "name" },
-  { title: "提供商", key: "provider", width: 100 },
+  { title: "名称", key: "name", ellipsis: { tooltip: true } },
+  { title: "提供商", key: "provider", width: 100, ellipsis: { tooltip: true } },
   { title: "API地址", key: "api_url", ellipsis: { tooltip: true } },
   { title: "调用次数", key: "call_count", width: 100 },
   {
@@ -101,7 +101,8 @@ const columns = [
   {
     title: "操作",
     key: "actions",
-    width: 220,
+    width: 300,
+    fixed: "right",
     render(row) {
       return h(NSpace, null, {
         default: () => [
@@ -264,9 +265,11 @@ onMounted(fetchModels);
     <div class="flex justify-between items-center mb-6">
       <h1 class="text-2xl font-bold">AI模型</h1>
       <n-button type="primary" @click="handleAdd">
-        <template #icon
-          ><n-icon><AddOutline /></n-icon
-        ></template>
+        <template #icon>
+          <n-icon>
+            <AddOutline />
+          </n-icon>
+        </template>
         添加模型
       </n-button>
     </div>
@@ -295,6 +298,7 @@ onMounted(fetchModels);
         :loading="loading"
         :pagination="false"
         :bordered="true"
+        :scroll-x="1100"
       />
     </n-card>
 

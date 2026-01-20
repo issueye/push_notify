@@ -34,3 +34,19 @@ func GetIDParam(c *gin.Context, name string) uint {
 	id, _ := strconv.ParseUint(c.Param(name), 10, 32)
 	return uint(id)
 }
+
+func GetUserID(c *gin.Context) uint {
+	userID, _ := c.Get("user_id")
+	if id, ok := userID.(uint); ok {
+		return id
+	}
+	return 0
+}
+
+func GetRequestID(c *gin.Context) string {
+	requestID, _ := c.Get("request_id")
+	if id, ok := requestID.(string); ok {
+		return id
+	}
+	return ""
+}

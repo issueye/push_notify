@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"strings"
 	"text/template"
+	"time"
 
 	"backend/internal/models"
 	"backend/internal/repository"
@@ -18,6 +19,7 @@ type CodeViewService struct {
 	promptRepo *repository.PromptRepo
 	modelRepo  *repository.AIModelRepo
 	modelServ  *AIModelService
+	logServ    *LogService
 }
 
 func NewCodeViewService(db *gorm.DB) *CodeViewService {
@@ -25,6 +27,7 @@ func NewCodeViewService(db *gorm.DB) *CodeViewService {
 		db:         db,
 		promptRepo: repository.NewPromptRepo(db),
 		modelRepo:  repository.NewAIModelRepo(db),
+		logServ:    NewLogService(db),
 	}
 }
 
@@ -156,8 +159,14 @@ func (s *CodeViewService) Review(repoID uint, input CodeViewInput) (*CodeViewRes
 
 	// 调用AI
 	// 提示词模板中已经包含代码内容，这里传空字符串避免重复
+	startTime := time.Now()
 	result, err := aiClient.CodeReview(promptText, "")
+	duration := int(time.Since(startTime).Milliseconds())
+
 	if err != nil {
+		if repo.ModelID != nil {
+			s.logServ.LogAICall(*repo.ModelID, promptText, err.Error(), duration, false)
+		}
 		return nil, err
 	}
 
@@ -167,6 +176,7 @@ func (s *CodeViewService) Review(repoID uint, input CodeViewInput) (*CodeViewRes
 	// 更新模型调用次数
 	if repo.ModelID != nil {
 		s.modelRepo.IncrementCallCount(*repo.ModelID)
+		s.logServ.LogAICall(*repo.ModelID, promptText, result, duration, true)
 	}
 
 	logger.Info("CodeView completed", map[string]interface{}{

@@ -20,12 +20,14 @@ var (
 )
 
 type RepoService struct {
+	db         *gorm.DB
 	repoRepo   *repository.RepoRepo
 	targetRepo *repository.TargetRepo
 }
 
 func NewRepoService(db *gorm.DB) *RepoService {
 	return &RepoService{
+		db:         db,
 		repoRepo:   repository.NewRepoRepo(db),
 		targetRepo: repository.NewTargetRepo(db),
 	}
@@ -61,6 +63,7 @@ func (s *RepoService) Create(data models.CreateRepo) (*models.Repo, error) {
 		Name:          name,
 		URL:           url,
 		Type:          data.Type,
+		WebhookID:     webhookID,
 		WebhookURL:    webhookURL,
 		WebhookSecret: webhookSecret,
 		Status:        models.RepoStatusActive,
@@ -123,59 +126,54 @@ func (s *RepoService) GetList(page, size int, keyword string) ([]models.Repo, in
 }
 
 // Update 更新仓库
-// TODO 添加事务
 func (s *RepoService) Update(id uint, data models.UpdateRepo) error {
-	repo, err := s.repoRepo.GetByID(id)
-	if err != nil {
-		return err
-	}
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		txRepo := s.repoRepo.WithTx(tx)
 
-	repo.Name = data.Name
-	repo.URL = data.URL
-	repo.Type = data.Type
-	repo.Status = data.Status
-	repo.ModelID = data.ModelID
-	repo.CommitTemplateID = data.CommitTemplateID
-
-	if data.AccessToken != "" {
-		repo.AccessToken = data.AccessToken
-	}
-
-	if len(data.TargetIds) > 0 {
-		// 删除再写入
-		if err := s.repoRepo.DeleteTargets(repo.ID); err != nil {
+		repo, err := txRepo.GetByID(id)
+		if err != nil {
 			return err
 		}
 
-		if err := s.repoRepo.InsertTargets(repo.ID, data.TargetIds); err != nil {
+		repo.Name = data.Name
+		repo.URL = data.URL
+		repo.Type = data.Type
+		repo.Status = data.Status
+		repo.ModelID = data.ModelID
+		repo.CommitTemplateID = data.CommitTemplateID
+
+		if data.AccessToken != "" {
+			repo.AccessToken = data.AccessToken
+		}
+
+		// 处理推送目标
+		if err := txRepo.DeleteTargets(repo.ID); err != nil {
 			return err
 		}
-	} else {
-		// 如果为空，也要删除（因为是全量更新）
-		if err := s.repoRepo.DeleteTargets(repo.ID); err != nil {
+		if len(data.TargetIds) > 0 {
+			if err := txRepo.InsertTargets(repo.ID, data.TargetIds); err != nil {
+				return err
+			}
+		}
+
+		// 清除 Gorm 加载的关联，避免 Save 时重复插入
+		repo.Targets = nil
+		repo.RepoTargets = nil
+
+		// 更新审查模板
+		if err := txRepo.DeleteReviewTemplates(repo.ID); err != nil {
 			return err
 		}
-	}
-
-	// 清除 Gorm 加载的关联，避免 Save 时重复插入
-	repo.Targets = nil
-	repo.RepoTargets = nil
-
-	// 更新审查模板 (全量更新：先删后加)
-	// 即使 data.ReviewTemplates 为空也可能意味着清空配置，所以只要字段存在（这里无法判断字段是否存在，假设总是更新）
-	// 但是为了安全起见，我们假设前端总是传全量。
-	if err := s.repoRepo.DeleteReviewTemplates(repo.ID); err != nil {
-		return err
-	}
-	if len(data.ReviewTemplates) > 0 {
-		// 去重
-		uniqueTemplates := deduplicateReviewTemplates(data.ReviewTemplates)
-		if err := s.repoRepo.InsertReviewTemplates(repo.ID, uniqueTemplates); err != nil {
-			return err
+		if len(data.ReviewTemplates) > 0 {
+			// 去重
+			uniqueTemplates := deduplicateReviewTemplates(data.ReviewTemplates)
+			if err := txRepo.InsertReviewTemplates(repo.ID, uniqueTemplates); err != nil {
+				return err
+			}
 		}
-	}
 
-	return s.repoRepo.Update(repo)
+		return txRepo.Update(repo)
+	})
 }
 
 // DeleteTargets 删除推送目标

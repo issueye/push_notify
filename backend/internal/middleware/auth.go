@@ -1,9 +1,13 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
+	"runtime/debug"
 	"strings"
 
+	"backend/internal/models"
+	"backend/internal/services"
 	"backend/internal/utils"
 	"backend/utils/logger"
 
@@ -100,8 +104,31 @@ func CORSMiddleware() gin.HandlerFunc {
 }
 
 // RecoveryMiddleware 恢复中间件
-func RecoveryMiddleware() gin.HandlerFunc {
-	return gin.Recovery()
+func RecoveryMiddleware(logService *services.LogService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		defer func() {
+			if err := recover(); err != nil {
+				// 获取堆栈信息
+				stack := string(debug.Stack())
+				
+				// 记录系统错误日志
+				message := fmt.Sprintf("System Panic: %v", err)
+				logService.LogSystem(models.LogLevelError, "system", message, stack)
+				
+				// 记录到文件日志
+				logger.Error("System panic recovered", map[string]interface{}{
+					"error": err,
+					"stack": stack,
+					"path":  c.Request.URL.Path,
+				})
+
+				// 返回错误信息
+				utils.Fail(c, 500, "服务器内部错误")
+				c.Abort()
+			}
+		}()
+		c.Next()
+	}
 }
 
 // RateLimitMiddleware 限流中间件（简化版）

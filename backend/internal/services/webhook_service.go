@@ -30,6 +30,7 @@ type WebhookService struct {
 	modelRepo    *repository.AIModelRepo
 	codeviewServ *CodeViewService
 	codeReviewQ  *CodeReviewQueue
+	pushNotifyQ  *PushNotifyQueue
 }
 
 func NewWebhookService(db *gorm.DB) *WebhookService {
@@ -44,7 +45,12 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 		codeviewServ: NewCodeViewService(db),
 	}
 	s.codeReviewQ = NewCodeReviewQueue(200, 2, s.processCodeReviewJob)
+	s.pushNotifyQ = NewPushNotifyQueue(500, 5, s.processPushNotifyJob)
 	return s
+}
+
+func (s *WebhookService) processPushNotifyJob(job PushNotifyJob) {
+	s.sendUnifiedPushNotification(job.Repo, job.Target, job.Payload, job.Template, job.Provider)
 }
 
 // HandleGitHubWebhook 处理GitHub Webhook
@@ -144,7 +150,14 @@ func (s *WebhookService) dispatchPushNotification(repo *models.Repo, payload *Un
 
 	// 为每个推送目标发送通知
 	for _, target := range targets {
-		go s.sendUnifiedPushNotification(repo, &target, payload, template, provider)
+		t := target // 局部变量，防止闭包问题
+		s.pushNotifyQ.Enqueue(PushNotifyJob{
+			Repo:     repo,
+			Target:   &t,
+			Payload:  payload,
+			Template: template,
+			Provider: provider,
+		})
 	}
 }
 

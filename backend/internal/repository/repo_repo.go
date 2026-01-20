@@ -14,6 +14,11 @@ func NewRepoRepo(db *gorm.DB) *RepoRepo {
 	return &RepoRepo{db: db}
 }
 
+// WithTx 返回一个使用指定事务 DB 的 RepoRepo
+func (r *RepoRepo) WithTx(tx *gorm.DB) *RepoRepo {
+	return &RepoRepo{db: tx}
+}
+
 // Create 创建仓库
 func (r *RepoRepo) Create(repo *models.Repo) error {
 	return r.db.Create(repo).Error
@@ -37,7 +42,7 @@ func (r *RepoRepo) GetByID(id uint) (*models.Repo, error) {
 // GetByWebhookID 根据WebhookID获取仓库
 func (r *RepoRepo) GetByWebhookID(webhookID string) (*models.Repo, error) {
 	var repo models.Repo
-	err := r.db.Where("webhook_url LIKE ?", "%"+webhookID+"%").
+	err := r.db.Where("webhook_id = ?", webhookID).
 		Preload("CommitTemplate").
 		Preload("ReviewTemplates").
 		Preload("ReviewTemplates.Template").
