@@ -235,27 +235,8 @@ func (s *WebhookService) doCodeReview(repo *models.Repo, payload *UnifiedPushPay
 	s.pushRepo.Update(push)
 
 	// 根据仓库类型创建Git客户端
-	var gitClient git.GitClient
-	if repo.Type == models.RepoTypeGitHub {
-		gitClient = git.NewClient(
-			repo.URL,
-			repo.AccessToken,
-			extractOwner(repo.URL),
-			extractRepoName(repo.URL),
-		)
-	} else if repo.Type == models.RepoTypeGitLab {
-		// 提取BaseURL
-		baseURL := extractGitLabBaseURL(repo.URL)
-		// 对于GitLab，Project ID可以是数字ID或URL编码的path_with_namespace
-		// 这里假设repo.Name是path_with_namespace (e.g. group/project)
-		projectID := url.PathEscape(repo.Name)
-		gitClient = git.NewGitLabClient(
-			baseURL,
-			repo.AccessToken,
-			projectID,
-		)
-	}
-
+	// 默认使用 go-git
+	gitClient := git.NewGoGitClient(repo.URL, repo.AccessToken)
 	if gitClient == nil {
 		logger.Warn("Unsupported repo type for codeview", map[string]interface{}{
 			"repo_id": repo.ID,
@@ -535,11 +516,7 @@ func (s *WebhookService) sendReviewNotification(repo *models.Repo, push *models.
 	for _, tpl := range templatesToSend {
 		content := s.buildReviewMessageContent(repo, push, issues, tpl)
 		for _, target := range targets {
-			if target.Type == models.TargetTypeDingTalk {
-				s.sendDingTalk(&target, content)
-			} else if target.Type == models.TargetTypeWebhook {
-				s.sendWebhook(&target, content)
-			}
+			s.sendDingTalk(&target, content)
 		}
 	}
 }
