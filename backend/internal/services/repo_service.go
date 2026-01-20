@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"backend/internal/models"
@@ -54,7 +55,7 @@ func (s *RepoService) Create(data models.CreateRepo) (*models.Repo, error) {
 
 	// 生成Webhook URL
 	webhookID := uuid.New().String()
-	webhookURL := "/webhook/" + webhookID
+	webhookURL := fmt.Sprintf("/webhook/%s/%s", data.Type, webhookID)
 
 	// 生成Webhook Secret
 	webhookSecret, _ := utils.GenerateWebhookSecret()
