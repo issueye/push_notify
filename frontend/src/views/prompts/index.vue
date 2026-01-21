@@ -14,6 +14,7 @@ import {
   NFormItem,
   NIcon,
   NPopconfirm,
+  NTooltip,
   useMessage,
   NRadioGroup,
   NRadio,
@@ -107,26 +108,8 @@ const columns = [
       return h(NSpace, null, {
         default: () => [
           h(
-            NButton,
-            {
-              size: "small",
-              quaternary: true,
-              onClick: () => openTest(row),
-            },
-            () => "测试",
-          ),
-          h(
-            NButton,
-            {
-              size: "small",
-              quaternary: true,
-              onClick: () => handleEdit(row),
-            },
-            () => "编辑",
-          ),
-          h(
-            NPopconfirm,
-            { onPositiveClick: () => handleDelete(row.id) },
+            NTooltip,
+            { trigger: "hover" },
             {
               trigger: () =>
                 h(
@@ -134,9 +117,60 @@ const columns = [
                   {
                     size: "small",
                     quaternary: true,
-                    type: "error",
+                    onClick: () => openTest(row),
                   },
-                  () => "删除",
+                  {
+                    icon: () =>
+                      h(NIcon, null, { default: () => h(PlayOutline) }),
+                  },
+                ),
+              default: () => "测试提示词",
+            },
+          ),
+          h(
+            NTooltip,
+            { trigger: "hover" },
+            {
+              trigger: () =>
+                h(
+                  NButton,
+                  {
+                    size: "small",
+                    quaternary: true,
+                    onClick: () => handleEdit(row),
+                  },
+                  {
+                    icon: () =>
+                      h(NIcon, null, { default: () => h(CreateOutline) }),
+                  },
+                ),
+              default: () => "编辑",
+            },
+          ),
+          h(
+            NPopconfirm,
+            { onPositiveClick: () => handleDelete(row.id) },
+            {
+              trigger: () =>
+                h(
+                  NTooltip,
+                  { trigger: "hover" },
+                  {
+                    trigger: () =>
+                      h(
+                        NButton,
+                        {
+                          size: "small",
+                          quaternary: true,
+                          type: "error",
+                        },
+                        {
+                          icon: () =>
+                            h(NIcon, null, { default: () => h(TrashOutline) }),
+                        },
+                      ),
+                    default: () => "删除",
+                  },
                 ),
               default: () => "确定要删除该提示词吗？",
             },

@@ -9,12 +9,13 @@ import {
   NTag,
   NInput,
   NSelect,
-  useMessage,
   NModal,
   NForm,
   NFormItem,
   NPopconfirm,
   NIcon,
+  NTooltip,
+  useMessage,
 } from "naive-ui";
 import {
   AddOutline,
@@ -22,6 +23,7 @@ import {
   LockOpenOutline,
   LockClosedOutline,
   RefreshOutline,
+  KeyOutline,
 } from "@vicons/ionicons5";
 import {
   getUserList,
@@ -54,8 +56,8 @@ const roleOptions = [
 
 const columns = [
   { title: "ID", key: "id", width: 60 },
-  { title: "用户名", key: "username" },
-  { title: "邮箱", key: "email" },
+  { title: "用户名", key: "username", width: 120 },
+  { title: "邮箱", key: "email", width: 200 },
   {
     title: "角色",
     key: "role",
@@ -105,27 +107,55 @@ const columns = [
   {
     title: "操作",
     key: "actions",
-    width: 180,
+    width: 170,
+    fixed: "right",
     render(row) {
       return h(NSpace, null, {
         default: () => [
           h(
-            NButton,
+            NTooltip,
+            { trigger: "hover" },
             {
-              size: "small",
-              quaternary: true,
-              onClick: () => handleResetPassword(row.id),
+              trigger: () =>
+                h(
+                  NButton,
+                  {
+                    size: "small",
+                    quaternary: true,
+                    onClick: () => handleResetPassword(row.id),
+                  },
+                  {
+                    icon: () =>
+                      h(NIcon, null, { default: () => h(KeyOutline) }),
+                  },
+                ),
+              default: () => "重置密码",
             },
-            () => "重置密码",
           ),
           h(
-            NButton,
+            NTooltip,
+            { trigger: "hover" },
             {
-              size: "small",
-              quaternary: true,
-              onClick: () => handleToggleStatus(row),
+              trigger: () =>
+                h(
+                  NButton,
+                  {
+                    size: "small",
+                    quaternary: true,
+                    onClick: () => handleToggleStatus(row),
+                  },
+                  {
+                    icon: () =>
+                      h(NIcon, null, {
+                        default: () =>
+                          row.status === "active"
+                            ? h(LockClosedOutline)
+                            : h(LockOpenOutline),
+                      }),
+                  },
+                ),
+              default: () => (row.status === "active" ? "锁定" : "解锁"),
             },
-            () => (row.status === "active" ? "锁定" : "解锁"),
           ),
         ],
       });

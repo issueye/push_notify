@@ -94,6 +94,7 @@ func (r *RepoRepo) Update(repo *models.Repo) error {
 		"status":             repo.Status,
 		"model_id":           repo.ModelID,
 		"commit_template_id": repo.CommitTemplateID,
+		"webhook_url":        repo.WebhookURL,
 	}
 	if repo.AccessToken != "" {
 		updates["access_token"] = repo.AccessToken

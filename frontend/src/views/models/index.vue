@@ -13,6 +13,7 @@ import {
   NFormItem,
   NIcon,
   NPopconfirm,
+  NTooltip,
   useMessage,
   NInputNumber,
 } from "naive-ui";
@@ -23,6 +24,8 @@ import {
   RefreshOutline,
   CreateOutline,
   SearchOutline,
+  StarOutline,
+  ShieldCheckmarkOutline,
 } from "@vicons/ionicons5";
 import {
   getModelList,
@@ -101,43 +104,14 @@ const columns = [
   {
     title: "操作",
     key: "actions",
-    width: 300,
+    width: 220,
     fixed: "right",
     render(row) {
       return h(NSpace, null, {
         default: () => [
           h(
-            NButton,
-            {
-              size: "small",
-              quaternary: true,
-              onClick: () => handleEdit(row),
-            },
-            () => "编辑",
-          ),
-          !row.is_default
-            ? h(
-                NButton,
-                {
-                  size: "small",
-                  quaternary: true,
-                  onClick: () => handleSetDefault(row.id),
-                },
-                () => "设为默认",
-              )
-            : null,
-          h(
-            NButton,
-            {
-              size: "small",
-              quaternary: true,
-              onClick: () => handleVerify(row.id),
-            },
-            () => "验证",
-          ),
-          h(
-            NPopconfirm,
-            { onPositiveClick: () => handleDelete(row.id) },
+            NTooltip,
+            { trigger: "hover" },
             {
               trigger: () =>
                 h(
@@ -145,10 +119,85 @@ const columns = [
                   {
                     size: "small",
                     quaternary: true,
-                    type: "error",
-                    disabled: row.is_default,
+                    onClick: () => handleEdit(row),
                   },
-                  () => "删除",
+                  {
+                    icon: () =>
+                      h(NIcon, null, { default: () => h(CreateOutline) }),
+                  },
+                ),
+              default: () => "编辑",
+            },
+          ),
+          !row.is_default
+            ? h(
+                NTooltip,
+                { trigger: "hover" },
+                {
+                  trigger: () =>
+                    h(
+                      NButton,
+                      {
+                        size: "small",
+                        quaternary: true,
+                        onClick: () => handleSetDefault(row.id),
+                      },
+                      {
+                        icon: () =>
+                          h(NIcon, null, { default: () => h(StarOutline) }),
+                      },
+                    ),
+                  default: () => "设为默认",
+                },
+              )
+            : null,
+          h(
+            NTooltip,
+            { trigger: "hover" },
+            {
+              trigger: () =>
+                h(
+                  NButton,
+                  {
+                    size: "small",
+                    quaternary: true,
+                    onClick: () => handleVerify(row.id),
+                  },
+                  {
+                    icon: () =>
+                      h(NIcon, null, {
+                        default: () => h(ShieldCheckmarkOutline),
+                      }),
+                  },
+                ),
+              default: () => "验证配置",
+            },
+          ),
+          h(
+            NPopconfirm,
+            { onPositiveClick: () => handleDelete(row.id) },
+            {
+              trigger: () =>
+                h(
+                  NTooltip,
+                  { trigger: "hover" },
+                  {
+                    trigger: () =>
+                      h(
+                        NButton,
+                        {
+                          size: "small",
+                          quaternary: true,
+                          type: "error",
+                          disabled: row.is_default,
+                        },
+                        {
+                          icon: () =>
+                            h(NIcon, null, { default: () => h(TrashOutline) }),
+                        },
+                      ),
+                    default: () => "删除",
+                  },
                 ),
               default: () =>
                 row.is_default ? "默认模型不能删除" : "确定要删除该模型吗？",
@@ -298,7 +347,7 @@ onMounted(fetchModels);
         :loading="loading"
         :pagination="false"
         :bordered="true"
-        :scroll-x="1100"
+        :scroll-x="1500"
       />
     </n-card>
 

@@ -136,6 +136,11 @@ func (s *RepoService) Update(id uint, data models.UpdateRepo) error {
 			return err
 		}
 
+		// 如果类型发生变化，同步更新 WebhookURL
+		if repo.Type != data.Type {
+			repo.WebhookURL = fmt.Sprintf("/webhook/%s/%s", data.Type, repo.WebhookID)
+		}
+
 		repo.Name = data.Name
 		repo.URL = data.URL
 		repo.Type = data.Type

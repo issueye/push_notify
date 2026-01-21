@@ -14,6 +14,7 @@ import {
   NFormItem,
   NIcon,
   NPopconfirm,
+  NTooltip,
   useMessage,
   NRadioGroup,
   NRadio,
@@ -24,6 +25,8 @@ import {
   RefreshOutline,
   CreateOutline,
   SearchOutline,
+  LockClosedOutline,
+  LockOpenOutline,
 } from "@vicons/ionicons5";
 import {
   getTemplateList,
@@ -122,32 +125,14 @@ const columns = [
   {
     title: "操作",
     key: "actions",
-    width: 220,
+    width: 170,
     fixed: "right",
     render(row) {
       return h(NSpace, null, {
         default: () => [
           h(
-            NButton,
-            {
-              size: "small",
-              quaternary: true,
-              onClick: () => handleEdit(row),
-            },
-            () => "编辑",
-          ),
-          h(
-            NButton,
-            {
-              size: "small",
-              quaternary: true,
-              onClick: () => toggleStatus(row),
-            },
-            () => (row.status === "active" ? "禁用" : "启用"),
-          ),
-          h(
-            NPopconfirm,
-            { onPositiveClick: () => handleDelete(row.id) },
+            NTooltip,
+            { trigger: "hover" },
             {
               trigger: () =>
                 h(
@@ -155,9 +140,65 @@ const columns = [
                   {
                     size: "small",
                     quaternary: true,
-                    type: "error",
+                    onClick: () => handleEdit(row),
                   },
-                  () => "删除",
+                  {
+                    icon: () =>
+                      h(NIcon, null, { default: () => h(CreateOutline) }),
+                  },
+                ),
+              default: () => "编辑",
+            },
+          ),
+          h(
+            NTooltip,
+            { trigger: "hover" },
+            {
+              trigger: () =>
+                h(
+                  NButton,
+                  {
+                    size: "small",
+                    quaternary: true,
+                    onClick: () => toggleStatus(row),
+                  },
+                  {
+                    icon: () =>
+                      h(NIcon, null, {
+                        default: () =>
+                          row.status === "active"
+                            ? h(LockClosedOutline)
+                            : h(LockOpenOutline),
+                      }),
+                  },
+                ),
+              default: () => (row.status === "active" ? "禁用" : "启用"),
+            },
+          ),
+          h(
+            NPopconfirm,
+            { onPositiveClick: () => handleDelete(row.id) },
+            {
+              trigger: () =>
+                h(
+                  NTooltip,
+                  { trigger: "hover" },
+                  {
+                    trigger: () =>
+                      h(
+                        NButton,
+                        {
+                          size: "small",
+                          quaternary: true,
+                          type: "error",
+                        },
+                        {
+                          icon: () =>
+                            h(NIcon, null, { default: () => h(TrashOutline) }),
+                        },
+                      ),
+                    default: () => "删除",
+                  },
                 ),
               default: () => "确定要删除该模板吗？",
             },
@@ -344,7 +385,7 @@ onMounted(fetchTemplates);
         :loading="loading"
         :pagination="false"
         :bordered="true"
-        :scroll-x="1100"
+        :scroll-x="1500"
       />
     </n-card>
 

@@ -14,6 +14,7 @@ import {
   NFormItem,
   NIcon,
   NPopconfirm,
+  NTooltip,
   useMessage,
   NDynamicInput,
   NGrid,
@@ -27,6 +28,7 @@ import {
   TrashOutline,
   RefreshOutline,
   SearchOutline,
+  CopyOutline,
 } from "@vicons/ionicons5";
 import {
   getRepoList,
@@ -134,8 +136,40 @@ const columns = [
   {
     title: "Webhook URL",
     key: "webhook_url",
-    minWidth: 250,
+    minWidth: 500,
     ellipsis: { tooltip: true },
+    render(row) {
+      return h(
+        NSpace,
+        { align: "center", wrap: false },
+        {
+          default: () => [
+            h("span", null, row.webhook_url),
+            h(
+              NTooltip,
+              { trigger: "hover" },
+              {
+                trigger: () =>
+                  h(
+                    NButton,
+                    {
+                      size: "tiny",
+                      quaternary: true,
+                      circle: true,
+                      onClick: () => handleCopyWebhook(row.webhook_url),
+                    },
+                    {
+                      icon: () =>
+                        h(NIcon, null, { default: () => h(CopyOutline) }),
+                    },
+                  ),
+                default: () => "复制 Webhook URL",
+              },
+            ),
+          ],
+        },
+      );
+    },
   },
   {
     title: "创建时间",
@@ -165,35 +199,53 @@ const columns = [
   {
     title: "操作",
     key: "actions",
-    width: 180,
+    width: 170,
     fixed: "right",
     render(row) {
       return h(NSpace, null, {
         default: () => [
           h(
-            NButton,
+            NTooltip,
+            { trigger: "hover" },
             {
-              size: "small",
-              quaternary: true,
-              onClick: () => handleEdit(row),
-              disabled:
-                testingId.value === row.id || deletingId.value === row.id,
-            },
-            {
-              icon: () => h(NIcon, null, { default: () => h(CreateOutline) }),
+              trigger: () =>
+                h(
+                  NButton,
+                  {
+                    size: "small",
+                    quaternary: true,
+                    onClick: () => handleEdit(row),
+                    disabled:
+                      testingId.value === row.id || deletingId.value === row.id,
+                  },
+                  {
+                    icon: () =>
+                      h(NIcon, null, { default: () => h(CreateOutline) }),
+                  },
+                ),
+              default: () => "编辑",
             },
           ),
           h(
-            NButton,
+            NTooltip,
+            { trigger: "hover" },
             {
-              size: "small",
-              quaternary: true,
-              loading: testingId.value === row.id,
-              disabled: deletingId.value === row.id,
-              onClick: () => handleTest(row.id),
-            },
-            {
-              icon: () => h(NIcon, null, { default: () => h(RefreshOutline) }),
+              trigger: () =>
+                h(
+                  NButton,
+                  {
+                    size: "small",
+                    quaternary: true,
+                    loading: testingId.value === row.id,
+                    disabled: deletingId.value === row.id,
+                    onClick: () => handleTest(row.id),
+                  },
+                  {
+                    icon: () =>
+                      h(NIcon, null, { default: () => h(RefreshOutline) }),
+                  },
+                ),
+              default: () => "测试 Webhook",
             },
           ),
           h(
@@ -206,17 +258,25 @@ const columns = [
             {
               trigger: () =>
                 h(
-                  NButton,
+                  NTooltip,
+                  { trigger: "hover" },
                   {
-                    size: "small",
-                    quaternary: true,
-                    type: "error",
-                    loading: deletingId.value === row.id,
-                    disabled: testingId.value === row.id,
-                  },
-                  {
-                    icon: () =>
-                      h(NIcon, null, { default: () => h(TrashOutline) }),
+                    trigger: () =>
+                      h(
+                        NButton,
+                        {
+                          size: "small",
+                          quaternary: true,
+                          type: "error",
+                          loading: deletingId.value === row.id,
+                          disabled: testingId.value === row.id,
+                        },
+                        {
+                          icon: () =>
+                            h(NIcon, null, { default: () => h(TrashOutline) }),
+                        },
+                      ),
+                    default: () => "删除",
                   },
                 ),
               default: () => "确定要删除该仓库吗？",
@@ -317,7 +377,7 @@ async function handleEdit(row) {
   form.name = row.name;
   form.url = row.url;
   form.type = row.type;
-  form.access_token = "";
+  form.access_token = row.access_token || "";
   form.webhook_secret = row.webhook_secret || "";
   form.target_ids = [];
   form.model_id = row.model_id || null;
@@ -403,6 +463,18 @@ async function handleDelete(id) {
   }
 }
 
+function handleCopyWebhook(url) {
+  const fullUrl = `${window.location.origin}${url}`;
+  navigator.clipboard
+    .writeText(fullUrl)
+    .then(() => {
+      message.success("Webhook URL 已复制到剪贴板");
+    })
+    .catch((err) => {
+      message.error("复制失败: " + err);
+    });
+}
+
 watch([page, searchKeyword], () => fetchRepos());
 
 onMounted(() => {
@@ -449,7 +521,7 @@ onMounted(() => {
         :loading="loading"
         :pagination="false"
         :bordered="true"
-        :scroll-x="1100"
+        :scroll-x="1500"
       />
     </n-card>
 

@@ -12,6 +12,8 @@ import {
   NDatePicker,
   NModal,
   NScrollbar,
+  NTooltip,
+  NIcon,
   useMessage,
 } from "naive-ui";
 import {
@@ -119,14 +121,25 @@ const columns = [
             h(NTag, { type, size: "small" }, () => text),
             row.codeview_result
               ? h(
-                  NButton,
+                  NTooltip,
+                  { trigger: "hover" },
                   {
-                    size: "tiny",
-                    quaternary: true,
-                    circle: true,
-                    onClick: () => handleViewCodeview(row),
+                    trigger: () =>
+                      h(
+                        NButton,
+                        {
+                          size: "tiny",
+                          quaternary: true,
+                          circle: true,
+                          onClick: () => handleViewCodeview(row),
+                        },
+                        {
+                          icon: () =>
+                            h(NIcon, null, { default: () => h(EyeOutline) }),
+                        },
+                      ),
+                    default: () => "查看代码审查",
                   },
-                  { icon: () => h(EyeOutline) },
                 )
               : null,
           ],
@@ -145,19 +158,30 @@ const columns = [
   {
     title: "操作",
     key: "actions",
-    width: 120,
+    width: 60,
     fixed: "right",
     render(row) {
       return h(
-        NButton,
+        NTooltip,
+        { trigger: "hover" },
         {
-          size: "small",
-          quaternary: true,
-          loading: retryingId.value === row.id,
-          disabled: batchRetrying.value,
-          onClick: () => handleRetry(row.id),
+          trigger: () =>
+            h(
+              NButton,
+              {
+                size: "small",
+                quaternary: true,
+                loading: retryingId.value === row.id,
+                disabled: batchRetrying.value,
+                onClick: () => handleRetry(row.id),
+              },
+              {
+                icon: () =>
+                  h(NIcon, null, { default: () => h(RefreshOutline) }),
+              },
+            ),
+          default: () => "重试推送",
         },
-        () => "重试",
       );
     },
   },
@@ -277,7 +301,7 @@ onMounted(fetchPushes);
         v-model:checked-row-keys="selectedRowKeys"
         :pagination="false"
         :bordered="true"
-        :scroll-x="1100"
+        :scroll-x="1500"
       />
     </n-card>
 

@@ -14,6 +14,7 @@ import {
   NFormItem,
   NIcon,
   NPopconfirm,
+  NTooltip,
   useMessage,
   NRadioGroup,
   NRadio,
@@ -117,33 +118,14 @@ const columns = [
   {
     title: "操作",
     key: "actions",
-    width: 200,
+    width: 170,
     fixed: "right",
     render(row) {
       return h(NSpace, null, {
         default: () => [
           h(
-            NButton,
-            {
-              size: "small",
-              quaternary: true,
-              loading: testingId.value === row.id,
-              onClick: () => handleTest(row.id),
-            },
-            () => "测试",
-          ),
-          h(
-            NButton,
-            {
-              size: "small",
-              quaternary: true,
-              onClick: () => handleEdit(row),
-            },
-            () => "编辑",
-          ),
-          h(
-            NPopconfirm,
-            { onPositiveClick: () => handleDelete(row.id) },
+            NTooltip,
+            { trigger: "hover" },
             {
               trigger: () =>
                 h(
@@ -151,9 +133,61 @@ const columns = [
                   {
                     size: "small",
                     quaternary: true,
-                    type: "error",
+                    loading: testingId.value === row.id,
+                    onClick: () => handleTest(row.id),
                   },
-                  () => "删除",
+                  {
+                    icon: () =>
+                      h(NIcon, null, { default: () => h(RefreshOutline) }),
+                  },
+                ),
+              default: () => "测试推送",
+            },
+          ),
+          h(
+            NTooltip,
+            { trigger: "hover" },
+            {
+              trigger: () =>
+                h(
+                  NButton,
+                  {
+                    size: "small",
+                    quaternary: true,
+                    onClick: () => handleEdit(row),
+                  },
+                  {
+                    icon: () =>
+                      h(NIcon, null, { default: () => h(CreateOutline) }),
+                  },
+                ),
+              default: () => "编辑",
+            },
+          ),
+          h(
+            NPopconfirm,
+            { onPositiveClick: () => handleDelete(row.id) },
+            {
+              trigger: () =>
+                h(
+                  NTooltip,
+                  { trigger: "hover" },
+                  {
+                    trigger: () =>
+                      h(
+                        NButton,
+                        {
+                          size: "small",
+                          quaternary: true,
+                          type: "error",
+                        },
+                        {
+                          icon: () =>
+                            h(NIcon, null, { default: () => h(TrashOutline) }),
+                        },
+                      ),
+                    default: () => "删除",
+                  },
                 ),
               default: () => "确定要删除该推送目标吗？",
             },
