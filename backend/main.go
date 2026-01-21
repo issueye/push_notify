@@ -51,6 +51,13 @@ func main() {
 		})
 	}
 
+	// 初始化数据
+	if err := database.InitData(db); err != nil {
+		logger.Fatal("Failed to init data", map[string]interface{}{
+			"error": err.Error(),
+		})
+	}
+
 	// 设置Gin模式
 	if cfg.App.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)

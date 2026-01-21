@@ -81,6 +81,60 @@ func Migrate(db *gorm.DB) error {
 	return nil
 }
 
+// InitData 初始化基础数据
+func InitData(db *gorm.DB) error {
+	// 1. 初始化 admin 用户
+	var userCount int64
+	db.Model(&models.User{}).Where("username = ?", "admin").Count(&userCount)
+	if userCount == 0 {
+		admin := &models.User{
+			Username: "admin",
+			Password: "admin123", // 初始密码
+			Email:    "admin@example.com",
+			Role:     models.RoleAdmin,
+			Status:   models.StatusActive,
+		}
+		if err := db.Create(admin).Error; err != nil {
+			return fmt.Errorf("failed to init admin user: %w", err)
+		}
+		fmt.Println("Initial admin user created: admin / admin123")
+	}
+
+	// 2. 初始化默认模板（如果没有任何模板）
+	var templateCount int64
+	db.Model(&models.Template{}).Count(&templateCount)
+	if templateCount == 0 {
+		defaultTemplates := []models.Template{
+			{
+				Name:      "默认提交通知",
+				Type:      "dingtalk",
+				Scene:     "commit_notify",
+				Title:     "代码提交通知",
+				Content:   "### 代码提交通知\n- **仓库**: {{.RepoName}}\n- **提交人**: {{.Author}}\n- **提交信息**: {{.CommitMsg}}\n- **提交ID**: {{.CommitID}}\n- **文件变更**: {{.FileCount}} 个文件\n\n[查看详情]({{.RepoURL}})",
+				IsDefault: true,
+				Status:    models.StatusActive,
+				Version:   1,
+			},
+			{
+				Name:      "默认审查通知",
+				Type:      "dingtalk",
+				Scene:     "review_notify",
+				Title:     "代码审查结果",
+				Content:   "### 代码审查结果\n- **仓库**: {{.RepoName}}\n- **提交信息**: {{.CommitMsg}}\n- **审查意见**:\n{{.Issues}}\n\n[查看详情]({{.RepoURL}})",
+				IsDefault: true,
+				Status:    models.StatusActive,
+				Version:   1,
+			},
+		}
+		if err := db.Create(&defaultTemplates).Error; err != nil {
+			return fmt.Errorf("failed to init default templates: %w", err)
+		}
+		fmt.Println("Initial default templates created")
+	}
+
+	return nil
+}
+
 func Close(db *gorm.DB) error {
 	sqlDB, err := db.DB()
 	if err != nil {
