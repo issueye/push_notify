@@ -21,6 +21,7 @@ import {
   NGridItem,
   NSelect as NSelectOption, // Alias if needed, but NSelect is fine
   NDivider,
+  NPagination,
 } from "naive-ui";
 import {
   AddOutline,
@@ -521,8 +522,19 @@ onMounted(() => {
         :loading="loading"
         :pagination="false"
         :bordered="true"
-        :scroll-x="1500"
+        :scroll-x="1100"
       />
+      <div class="mt-4 flex justify-end">
+        <n-pagination
+          v-model:page="page"
+          v-model:page-size="size"
+          :item-count="total"
+          show-size-picker
+          :page-sizes="[10, 20, 50, 100]"
+          @update:page="fetchRepos"
+          @update:page-size="fetchRepos"
+        />
+      </div>
     </n-card>
 
     <n-modal

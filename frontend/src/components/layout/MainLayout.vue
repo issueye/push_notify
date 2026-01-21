@@ -121,10 +121,11 @@ function toggleSidebar() {
       :native-scrollbar="false"
     >
       <div
-        class="h-16 flex items-center justify-center border-b border-gray-200"
+        class="h-16 flex items-center justify-center border-b border-gray-200 gap-2"
       >
-        <h1 class="text-lg font-bold text-primary-600">
-          {{ collapsed ? "PN" : "Push Notify" }}
+        <img src="@/assets/logo.svg" class="w-8 h-8" alt="Logo" />
+        <h1 v-if="!collapsed" class="text-lg font-bold text-primary-600">
+          Push Notify
         </h1>
       </div>
       <n-menu

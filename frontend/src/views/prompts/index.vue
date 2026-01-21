@@ -15,6 +15,7 @@ import {
   NIcon,
   NPopconfirm,
   NTooltip,
+  NPagination,
   useMessage,
   NRadioGroup,
   NRadio,
@@ -317,6 +318,17 @@ onMounted(fetchPrompts);
         :pagination="false"
         :bordered="true"
       />
+      <div class="mt-4 flex justify-end">
+        <n-pagination
+          v-model:page="page"
+          v-model:page-size="size"
+          :item-count="total"
+          show-size-picker
+          :page-sizes="[10, 20, 50, 100]"
+          @update:page="fetchPrompts"
+          @update:page-size="fetchPrompts"
+        />
+      </div>
     </n-card>
 
     <n-modal

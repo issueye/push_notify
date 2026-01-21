@@ -14,6 +14,7 @@ import {
   NScrollbar,
   NTooltip,
   NIcon,
+  NPagination,
   useMessage,
 } from "naive-ui";
 import {
@@ -303,6 +304,17 @@ onMounted(fetchPushes);
         :bordered="true"
         :scroll-x="1500"
       />
+      <div class="mt-4 flex justify-end">
+        <n-pagination
+          v-model:page="page"
+          v-model:page-size="size"
+          :item-count="total"
+          show-size-picker
+          :page-sizes="[10, 20, 50, 100]"
+          @update:page="fetchPushes"
+          @update:page-size="fetchPushes"
+        />
+      </div>
     </n-card>
 
     <n-modal
