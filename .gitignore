@@ -4,3 +4,4 @@ nul
 *.exe
 backend/static/dist/*
 frontend/dist/*
+push-notify-linux

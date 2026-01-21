@@ -14,7 +14,7 @@ type Repo struct {
 	AccessToken   string         `gorm:"size:255" json:"access_token"`
 	WebhookID     string         `gorm:"uniqueIndex;size:100" json:"webhook_id"`
 	WebhookURL    string         `gorm:"size:500;not null" json:"webhook_url"`
-	WebhookSecret string         `gorm:"size:100" json:"-"`
+	WebhookSecret string         `gorm:"size:100" json:"webhook_secret"`
 	ModelID       *uint          `json:"model_id"`
 	Model         *AIModel       `gorm:"foreignKey:ModelID" json:"model,omitempty"`
 	

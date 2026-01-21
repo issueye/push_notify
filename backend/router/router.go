@@ -204,6 +204,17 @@ func Setup(cfg *config.Config) *gin.Engine {
 	// 处理 /web 前缀
 	r.StaticFS("/web", http.FS(staticFS))
 
+	// SPA 路由回退处理
+	r.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		// 如果是访问 /web 下的路径，且不是 API 或 Webhook，则返回 index.html
+		if len(path) >= 4 && path[:4] == "/web" {
+			c.FileFromFS("index.html", http.FS(staticFS))
+			return
+		}
+		c.JSON(http.StatusNotFound, gin.H{"error": "Not Found"})
+	})
+
 	// 根路径重定向到 /web/
 	r.GET("/", func(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/web/")

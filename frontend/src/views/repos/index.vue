@@ -173,6 +173,45 @@ const columns = [
     },
   },
   {
+    title: "Webhook Secret",
+    key: "webhook_secret",
+    width: 150,
+    ellipsis: { tooltip: true },
+    render(row) {
+      if (!row.webhook_secret) return "-";
+      return h(
+        NSpace,
+        { align: "center", wrap: false },
+        {
+          default: () => [
+            h("span", null, "******"),
+            h(
+              NTooltip,
+              { trigger: "hover" },
+              {
+                trigger: () =>
+                  h(
+                    NButton,
+                    {
+                      size: "tiny",
+                      quaternary: true,
+                      circle: true,
+                      onClick: () => handleCopySecret(row.webhook_secret),
+                    },
+                    {
+                      icon: () =>
+                        h(NIcon, null, { default: () => h(CopyOutline) }),
+                    },
+                  ),
+                default: () => "复制 Secret",
+              },
+            ),
+          ],
+        },
+      );
+    },
+  },
+  {
     title: "创建时间",
     key: "created_at",
     width: 180,
@@ -464,16 +503,63 @@ async function handleDelete(id) {
   }
 }
 
-function handleCopyWebhook(url) {
+async function copyToClipboard(text) {
+  // 优先使用 modern Clipboard API
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.error("Clipboard API copy failed: ", err);
+    }
+  }
+
+  // Fallback: 使用传统的 textarea + execCommand 方案
+  // 适用于非安全上下文（如通过 IP 访问的 HTTP 环境）
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+
+  // 确保 textarea 在移动端和桌面端都不可见且不影响布局
+  textArea.style.position = "fixed";
+  textArea.style.left = "-9999px";
+  textArea.style.top = "0";
+  document.body.appendChild(textArea);
+
+  textArea.focus();
+  textArea.select();
+
+  try {
+    const successful = document.execCommand("copy");
+    document.body.removeChild(textArea);
+    return successful;
+  } catch (err) {
+    console.error("Fallback copy failed: ", err);
+    document.body.removeChild(textArea);
+    return false;
+  }
+}
+
+async function handleCopyWebhook(url) {
   const fullUrl = `${window.location.origin}${url}`;
-  navigator.clipboard
-    .writeText(fullUrl)
-    .then(() => {
-      message.success("Webhook URL 已复制到剪贴板");
-    })
-    .catch((err) => {
-      message.error("复制失败: " + err);
-    });
+  const success = await copyToClipboard(fullUrl);
+  if (success) {
+    message.success("Webhook URL 已复制到剪贴板");
+  } else {
+    message.error("复制失败，请手动复制");
+  }
+}
+
+async function handleCopySecret(secret) {
+  if (!secret) {
+    message.warning("密钥为空");
+    return;
+  }
+  const success = await copyToClipboard(secret);
+  if (success) {
+    message.success("密钥已复制到剪贴板");
+  } else {
+    message.error("复制失败，请手动复制");
+  }
 }
 
 watch([page, searchKeyword], () => fetchRepos());

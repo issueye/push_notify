@@ -5,7 +5,7 @@ import (
 	"io/fs"
 )
 
-//go:embed dist/*
+//go:embed all:dist
 var staticEmbed embed.FS
 
 // GetStaticFS returns the static assets filesystem
