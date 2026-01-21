@@ -175,14 +175,22 @@ func (r *PushRepo) GetPendingPushes(limit int) ([]models.Push, error) {
 	return pushes, err
 }
 
-// Delete 删除推送记录
+// Delete 删除推送记录（物理删除，避免唯一索引冲突）
 func (r *PushRepo) Delete(id uint) error {
-	return r.db.Delete(&models.Push{}, id).Error
+	return r.db.Unscoped().Delete(&models.Push{}, id).Error
 }
 
-// BatchDelete 批量删除
+// Transaction 执行事务
+func (r *PushRepo) Transaction(fn func(txRepo *PushRepo) error) error {
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		txRepo := &PushRepo{db: tx}
+		return fn(txRepo)
+	})
+}
+
+// BatchDelete 批量删除（物理删除）
 func (r *PushRepo) BatchDelete(ids []uint) error {
-	return r.db.Where("id IN ?", ids).Delete(&models.Push{}).Error
+	return r.db.Unscoped().Where("id IN ?", ids).Delete(&models.Push{}).Error
 }
 
 // ExistsByCommitAndTarget 检查是否存在相同提交和目标的推送记录

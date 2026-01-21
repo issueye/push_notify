@@ -8,6 +8,7 @@ import (
 	"backend/internal/services"
 	"backend/internal/utils"
 	"backend/static"
+	"fmt"
 
 	"net/http"
 
@@ -48,7 +49,12 @@ func Setup(cfg *config.Config) *gin.Engine {
 	promptService := services.NewPromptService(db)
 	modelService := services.NewAIModelService(db)
 	pushService := services.NewPushService(db)
-	webhookService := services.NewWebhookService(db)
+
+	baseURL := ""
+	if cfg.App.Host != "" && cfg.App.Host != "0.0.0.0" && cfg.App.Port != 0 {
+		baseURL = fmt.Sprintf("http://%s:%d", cfg.App.Host, cfg.App.Port)
+	}
+	webhookService := services.NewWebhookService(db, baseURL)
 
 	// 初始化处理器
 	authHandler := handlers.NewAuthHandler(authService)
@@ -116,6 +122,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 		{
 			pushes.GET("", pushHandler.List)
 			pushes.GET("/:id", pushHandler.Detail)
+			pushes.DELETE("/:id", pushHandler.Delete)
 			pushes.POST("/:id/retry", pushHandler.Retry)
 			pushes.POST("/batch-retry", pushHandler.BatchRetry)
 			pushes.DELETE("/batch-delete", pushHandler.BatchDelete)

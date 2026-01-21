@@ -47,6 +47,18 @@ func (h *PushHandler) Detail(c *gin.Context) {
 	utils.Success(c, push)
 }
 
+// Delete 删除推送记录
+func (h *PushHandler) Delete(c *gin.Context) {
+	id := utils.GetID(c)
+	err := h.pushService.Delete(id)
+	if err != nil {
+		utils.Fail(c, 400, err.Error())
+		return
+	}
+
+	utils.SuccessWithMsg(c, "删除成功", nil)
+}
+
 // Retry 重试推送
 func (h *PushHandler) Retry(c *gin.Context) {
 	id := utils.GetID(c)

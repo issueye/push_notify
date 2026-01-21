@@ -31,9 +31,10 @@ type WebhookService struct {
 	codeviewServ *CodeViewService
 	codeReviewQ  *CodeReviewQueue
 	pushNotifyQ  *PushNotifyQueue
+	baseURL      string
 }
 
-func NewWebhookService(db *gorm.DB) *WebhookService {
+func NewWebhookService(db *gorm.DB, baseURL string) *WebhookService {
 	s := &WebhookService{
 		db:           db,
 		repoRepo:     repository.NewRepoRepo(db),
@@ -43,6 +44,7 @@ func NewWebhookService(db *gorm.DB) *WebhookService {
 		promptRepo:   repository.NewPromptRepo(db),
 		modelRepo:    repository.NewAIModelRepo(db),
 		codeviewServ: NewCodeViewService(db),
+		baseURL:      baseURL,
 	}
 	s.codeReviewQ = NewCodeReviewQueue(200, 2, s.processCodeReviewJob)
 	s.pushNotifyQ = NewPushNotifyQueue(500, 5, s.processPushNotifyJob)
@@ -598,12 +600,23 @@ func (s *WebhookService) buildReviewMessageContent(repo *models.Repo, push *mode
 	}
 
 	if template == nil || template.Content == "" {
+		// 生成审查链接
+		reviewURL := ""
+		if s.baseURL != "" {
+			reviewURL = fmt.Sprintf("%s/web/#/pushes/review?id=%d", s.baseURL, push.ID)
+		}
+
 		var content strings.Builder
-		content.WriteString("## 代码审查报告\n\n")
-		content.WriteString("**仓库**: " + repo.Name + "\n")
-		content.WriteString("**提交**: " + push.CommitID[:7] + "\n")
-		content.WriteString("**信息**: " + push.CommitMsg + "\n\n")
-		content.WriteString(issues)
+		content.WriteString("### 🔍 代码审查结果\n\n")
+		content.WriteString("**仓库名称：** " + repo.Name + "\n")
+		content.WriteString("**提交ID：** `" + push.CommitID + "`\n")
+		content.WriteString("**提交信息：** " + push.CommitMsg + "\n\n")
+		content.WriteString("---\n")
+		if reviewURL != "" {
+			content.WriteString("[查看审查详情](" + reviewURL + ")")
+		} else {
+			content.WriteString(issues)
+		}
 		return content.String()
 	}
 
@@ -613,6 +626,13 @@ func (s *WebhookService) buildReviewMessageContent(repo *models.Repo, push *mode
 	content = strings.ReplaceAll(content, "{{.CommitID}}", push.CommitID)
 	content = strings.ReplaceAll(content, "{{.CommitMsg}}", push.CommitMsg)
 	content = strings.ReplaceAll(content, "{{.Issues}}", issues)
-	
+
+	// 生成审查链接
+	reviewURL := ""
+	if s.baseURL != "" {
+		reviewURL = fmt.Sprintf("%s/web/#/pushes/review?id=%d", s.baseURL, push.ID)
+	}
+	content = strings.ReplaceAll(content, "{{.ReviewURL}}", reviewURL)
+
 	return content
 }

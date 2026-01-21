@@ -120,7 +120,7 @@ func InitData(db *gorm.DB) error {
 				Type:      "dingtalk",
 				Scene:     "review_notify",
 				Title:     "代码审查结果",
-				Content:   "### 代码审查结果\n- **仓库**: {{.RepoName}}\n- **提交信息**: {{.CommitMsg}}\n- **审查意见**:\n{{.Issues}}\n\n[查看详情]({{.RepoURL}})",
+				Content:   "### 🔍 代码审查结果\n\n**仓库名称：** {{.RepoName}}\n**提交ID：** `{{.CommitID}}` \n**提交信息：** {{.CommitMsg}}\n\n---\n[查看审查详情]({{.ReviewURL}})",
 				IsDefault: true,
 				Status:    models.StatusActive,
 				Version:   1,

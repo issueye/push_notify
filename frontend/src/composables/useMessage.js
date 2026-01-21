@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { useMessage as naiveMessage } from "naive-ui";
+import { useMessage as naiveMessage, useDialog } from "naive-ui";
 
 export function useMessage() {
   const message = naiveMessage();
@@ -12,10 +12,12 @@ export function useMessage() {
 }
 
 export function useConfirm() {
-  const message = naiveMessage();
+  const dialog = useDialog();
   return {
     confirm: (content, onOk, onCancel) => {
-      message.warning(content, {
+      dialog.warning({
+        title: "确认",
+        content: content,
         positiveText: "确认",
         negativeText: "取消",
         onPositiveClick: onOk,

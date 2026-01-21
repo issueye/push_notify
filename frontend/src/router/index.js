@@ -38,6 +38,12 @@ const routes = [
         meta: { title: "推送记录" },
       },
       {
+        path: "pushes/review",
+        name: "PushReview",
+        component: () => import("@/views/pushes/ReviewDetail.vue"),
+        meta: { title: "代码审查详情" },
+      },
+      {
         path: "templates",
         name: "Templates",
         component: () => import("@/views/templates/index.vue"),

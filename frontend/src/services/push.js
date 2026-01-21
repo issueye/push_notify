@@ -12,6 +12,10 @@ export function retryPush(id) {
   return $post(`/pushes/${id}/retry`)
 }
 
+export function deletePush(id) {
+  return $delete(`/pushes/${id}`)
+}
+
 export function batchRetry(pushIds) {
   return $post('/pushes/batch-retry', { push_ids: pushIds })
 }

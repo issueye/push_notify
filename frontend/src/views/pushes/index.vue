@@ -10,8 +10,6 @@ import {
   NInput,
   NSelect,
   NDatePicker,
-  NModal,
-  NScrollbar,
   NTooltip,
   NIcon,
   NPagination,
@@ -22,12 +20,16 @@ import {
   SearchOutline,
   CodeWorkingOutline,
   EyeOutline,
+  TrashOutline,
 } from "@vicons/ionicons5";
-import { getPushList, retryPush, batchRetry } from "@/services/push";
+import {
+  getPushList,
+  retryPush,
+  batchRetry,
+  deletePush,
+} from "@/services/push";
 import { usePagination, useConfirm } from "@/composables/useMessage";
-import MarkdownIt from "markdown-it";
 
-const md = new MarkdownIt();
 const message = useMessage();
 const { confirm } = useConfirm();
 const { page, size, total } = usePagination();
@@ -40,10 +42,6 @@ const searchTimeRange = ref(null);
 const selectedRowKeys = ref([]);
 const retryingId = ref(null);
 const batchRetrying = ref(false);
-
-const showCodeviewModal = ref(false);
-const currentCodeview = ref("");
-const currentCommitId = ref("");
 
 const statusOptions = [
   { label: "全部状态", value: null },
@@ -159,31 +157,56 @@ const columns = [
   {
     title: "操作",
     key: "actions",
-    width: 60,
+    width: 120,
     fixed: "right",
     render(row) {
-      return h(
-        NTooltip,
-        { trigger: "hover" },
-        {
-          trigger: () =>
-            h(
-              NButton,
-              {
-                size: "small",
-                quaternary: true,
-                loading: retryingId.value === row.id,
-                disabled: batchRetrying.value,
-                onClick: () => handleRetry(row.id),
-              },
-              {
-                icon: () =>
-                  h(NIcon, null, { default: () => h(RefreshOutline) }),
-              },
-            ),
-          default: () => "重试推送",
-        },
-      );
+      return h(NSpace, null, {
+        default: () => [
+          h(
+            NTooltip,
+            { trigger: "hover" },
+            {
+              trigger: () =>
+                h(
+                  NButton,
+                  {
+                    size: "small",
+                    quaternary: true,
+                    loading: retryingId.value === row.id,
+                    disabled: batchRetrying.value,
+                    onClick: () => handleRetry(row.id),
+                  },
+                  {
+                    icon: () =>
+                      h(NIcon, null, { default: () => h(RefreshOutline) }),
+                  },
+                ),
+              default: () => "重试推送",
+            },
+          ),
+          h(
+            NTooltip,
+            { trigger: "hover" },
+            {
+              trigger: () =>
+                h(
+                  NButton,
+                  {
+                    size: "small",
+                    quaternary: true,
+                    type: "error",
+                    onClick: () => handleDelete(row.id),
+                  },
+                  {
+                    icon: () =>
+                      h(NIcon, null, { default: () => h(TrashOutline) }),
+                  },
+                ),
+              default: () => "删除记录",
+            },
+          ),
+        ],
+      });
     },
   },
 ];
@@ -211,10 +234,14 @@ async function fetchPushes() {
   }
 }
 
+import { useRouter } from "vue-router";
+const router = useRouter();
+
 function handleViewCodeview(row) {
-  currentCodeview.value = row.codeview_result || "";
-  currentCommitId.value = row.commit_id || "";
-  showCodeviewModal.value = true;
+  router.push({
+    name: "PushReview",
+    query: { id: row.id },
+  });
 }
 
 async function handleRetry(id) {
@@ -246,6 +273,18 @@ function handleBatchRetry() {
       .finally(() => {
         batchRetrying.value = false;
       });
+  });
+}
+
+async function handleDelete(id) {
+  confirm("确定要删除这条推送记录吗？", async () => {
+    try {
+      await deletePush(id);
+      message.success("删除成功");
+      fetchPushes();
+    } catch (e) {
+      message.error("删除失败");
+    }
   });
 }
 
@@ -316,75 +355,7 @@ onMounted(fetchPushes);
         />
       </div>
     </n-card>
-
-    <n-modal
-      v-model:show="showCodeviewModal"
-      preset="card"
-      :title="'代码审查详情 - ' + currentCommitId.substring(0, 7)"
-      style="width: 800px"
-    >
-      <n-scrollbar style="max-height: 600px">
-        <div
-          class="markdown-body p-4"
-          v-html="md.render(currentCodeview)"
-        ></div>
-      </n-scrollbar>
-    </n-modal>
   </div>
 </template>
 
-<style scoped>
-.markdown-body {
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji";
-  font-size: 16px;
-  line-height: 1.5;
-  word-wrap: break-word;
-}
-
-.markdown-body :deep(h1),
-.markdown-body :deep(h2),
-.markdown-body :deep(h3) {
-  margin-top: 24px;
-  margin-bottom: 16px;
-  font-weight: 600;
-  line-height: 1.25;
-}
-
-.markdown-body :deep(h3) {
-  font-size: 1.25em;
-}
-
-.markdown-body :deep(p) {
-  margin-top: 0;
-  margin-bottom: 16px;
-}
-
-.markdown-body :deep(code) {
-  padding: 0.2em 0.4em;
-  margin: 0;
-  font-size: 85%;
-  background-color: rgba(175, 184, 193, 0.2);
-  border-radius: 6px;
-}
-
-.markdown-body :deep(pre) {
-  padding: 16px;
-  overflow: auto;
-  font-size: 85%;
-  line-height: 1.45;
-  background-color: #f6f8fa;
-  border-radius: 6px;
-}
-
-.markdown-body :deep(pre code) {
-  padding: 0;
-  margin: 0;
-  font-size: 100%;
-  word-break: normal;
-  white-space: pre;
-  background: transparent;
-  border: 0;
-}
-</style>
+<style scoped></style>

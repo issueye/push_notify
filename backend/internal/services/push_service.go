@@ -65,31 +65,58 @@ func (s *PushService) Retry(id uint) (uint, error) {
 		return 0, err
 	}
 
-	// 创建新的推送记录
-	newPush := &models.Push{
-		RepoID:     push.RepoID,
-		TargetID:   push.TargetID,
-		TemplateID: push.TemplateID,
-		CommitID:   push.CommitID,
-		CommitMsg:  push.CommitMsg,
-		Status:     models.PushStatusPending,
-		Content:    push.Content,
-		RetryCount: 0,
-	}
+	// 使用事务确保先删后加的原子性
+	var newID uint
+	err = s.pushRepo.Transaction(func(txRepo *repository.PushRepo) error {
+		// 1. 准备新数据
+		newPushData := map[string]interface{}{
+			"repo_id":    push.RepoID,
+			"target_id":  push.TargetID,
+			"commit_id":  push.CommitID,
+			"commit_msg": push.CommitMsg,
+			"content":    push.Content,
+		}
+		if push.TemplateID != nil {
+			newPushData["template_id"] = *push.TemplateID
+		}
 
-	if err := s.pushRepo.Create(newPush); err != nil {
+		// 2. 物理删除旧记录
+		if err := txRepo.Delete(id); err != nil {
+			return err
+		}
+
+		// 3. 创建新记录
+		// 这里直接构造模型对象以避免依赖 Service 的 Create 方法（可能涉及不同的 Repo 实例）
+		newPush := &models.Push{
+			RepoID:     newPushData["repo_id"].(uint),
+			TargetID:   newPushData["target_id"].(uint),
+			CommitID:   newPushData["commit_id"].(string),
+			CommitMsg:  newPushData["commit_msg"].(string),
+			Content:    newPushData["content"].(string),
+			Status:     models.PushStatusPending,
+			RetryCount: 0,
+		}
+		if tid, ok := newPushData["template_id"].(uint); ok {
+			newPush.TemplateID = &tid
+		}
+
+		if err := txRepo.Create(newPush); err != nil {
+			return err
+		}
+		newID = newPush.ID
+		return nil
+	})
+
+	if err != nil {
 		return 0, err
 	}
 
-	// 更新原记录的重试次数
-	s.pushRepo.IncrementRetryCount(id)
-
-	logger.Info("Push retried", map[string]interface{}{
+	logger.Info("Push retried and old record physically removed", map[string]interface{}{
 		"original_id": id,
-		"new_id":      newPush.ID,
+		"new_id":      newID,
 	})
 
-	return newPush.ID, nil
+	return newID, nil
 }
 
 // BatchRetry 批量重试
@@ -110,6 +137,11 @@ func (s *PushService) BatchDelete(ids []uint, beforeDate string) error {
 		return s.pushRepo.BatchDelete(ids)
 	}
 	return nil
+}
+
+// Delete 删除推送记录
+func (s *PushService) Delete(id uint) error {
+	return s.pushRepo.Delete(id)
 }
 
 // GetStats 获取统计
